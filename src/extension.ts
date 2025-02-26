@@ -76,8 +76,13 @@ async function doCopy(
 
     // 讀取設定
     const config = vscode.workspace.getConfiguration('copyForAI');
-    const outputFormat = config.get<string>('outputFormat', 'markdown');
+    let outputFormat = config.get<string>('outputFormat', 'markdown');
     
+    // 確保格式是有效的，否則使用預設值
+    if (!['markdown', 'xml', 'json', 'custom'].includes(outputFormat)) {
+        outputFormat = 'markdown';
+        vscode.window.showWarningMessage(`不支援的輸出格式: ${outputFormat}，已改用預設 Markdown 格式`);
+    }
     // 處理程式碼（包括結構分析等）
     let extraContext;
     
@@ -112,7 +117,7 @@ async function doCopy(
     
     // 顯示成功訊息
     if (includeContext) {
-        vscode.window.showInformationMessage('已複製程式碼和上下文到剪貼簿');
+        vscode.window.showInformationMessage(`已複製程式碼和上下文到剪貼簿 (格式: ${outputFormat})`);
     } else {
         vscode.window.showInformationMessage('已複製程式碼到剪貼簿');
     }
