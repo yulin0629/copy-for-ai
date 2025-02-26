@@ -14,10 +14,19 @@
   "contributes": {
     "commands": [
       {
-        "command": "copy-for-ai.helloWorld",
-        "title": "Hello World"
+        "command": "copy-for-ai.copyForAI",
+        "title": "Copy For AI"
       }
-    ]
+    ],
+    "menus": {
+      "editor/context": [
+        {
+          "when": "editorHasSelection",
+          "command": "copy-for-ai.copyForAI",
+          "group": "clipboard"
+        }
+      ]
+    }
   },
   "scripts": {
     "vscode:prepublish": "npm run package",

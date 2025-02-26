@@ -1,71 +1,69 @@
-# copy-for-ai README
+# Copy For AI
 
-This is the README for your extension "copy-for-ai". After writing up a brief description, we recommend including the following sections.
+這是一個簡單的 VSCode 擴展，讓你能夠將選取的程式碼以 AI 友善的 Markdown 格式複製到剪貼簿。
 
-## Features
+## 功能
 
-Describe specific features of your extension including screenshots of your extension in action. Image paths are relative to this README file.
+當你在編輯器中選取一段程式碼後，右鍵選單中會出現「Copy For AI」選項。點擊此選項後，擴展會：
 
-For example if there is an image subfolder under your extension project workspace:
+1. 保持程式碼的相對縮排，但移除共同的前導空格
+2. 將程式碼轉換為 Markdown 格式
+3. 添加檔案路徑和行號資訊
+4. 自動偵測程式語言
+5. 將結果複製到剪貼簿
 
-\!\[feature X\]\(images/feature-x.png\)
+複製的格式範例：
 
-> Tip: Many popular extensions utilize animations. This is an excellent way to show off your extension! We recommend short, focused animations that are easy to follow.
+```
+## File: RoyalBase/Filters/DumpFilter.cs (22-24)
+```csharp
+var a = 10;
+if (a == 10) {
+  a = 5;
+}
+```
+```
 
-## Requirements
+## 使用方法
 
-If you have any requirements or dependencies, add a section describing those and how to install and configure them.
+1. 在編輯器中選取程式碼
+2. 右鍵選單 -> 選擇「Copy For AI」
+3. 將複製的內容貼到 ChatGPT、Claude 或其他 AI 工具中
 
-## Extension Settings
+## 安裝
 
-Include if your extension adds any VS Code settings through the `contributes.configuration` extension point.
+從 VSCode 擴展市集安裝：
+1. 開啟 VSCode
+2. 按 `Ctrl+Shift+X` 或 `Cmd+Shift+X` 開啟擴展視窗
+3. 搜尋 "Copy For AI"
+4. 點擊 "Install"
 
-For example:
+## 手動安裝
 
-This extension contributes the following settings:
+如果你想手動安裝：
+1. 下載 `.vsix` 檔案
+2. 在 VSCode 中按 `Ctrl+Shift+X` 或 `Cmd+Shift+X` 開啟擴展視窗
+3. 點擊右上角的 "..." 按鈕
+4. 選擇 "Install from VSIX..."
+5. 選擇下載的 `.vsix` 檔案
 
-* `myExtension.enable`: Enable/disable this extension.
-* `myExtension.thing`: Set to `blah` to do something.
+## 開發
 
-## Known Issues
+### 建置
+```bash
+npm run compile
+```
 
-Calling out known issues can help limit users opening duplicate issues against your extension.
+### 監視模式
+```bash
+npm run watch
+```
 
-## Release Notes
+### 打包
+```bash
+npm run package
+```
 
-Users appreciate release notes as you update your extension.
+## 授權
 
-### 1.0.0
-
-Initial release of ...
-
-### 1.0.1
-
-Fixed issue #.
-
-### 1.1.0
-
-Added features X, Y, and Z.
-
----
-
-## Following extension guidelines
-
-Ensure that you've read through the extensions guidelines and follow the best practices for creating your extension.
-
-* [Extension Guidelines](https://code.visualstudio.com/api/references/extension-guidelines)
-
-## Working with Markdown
-
-You can author your README using Visual Studio Code. Here are some useful editor keyboard shortcuts:
-
-* Split the editor (`Cmd+\` on macOS or `Ctrl+\` on Windows and Linux).
-* Toggle preview (`Shift+Cmd+V` on macOS or `Shift+Ctrl+V` on Windows and Linux).
-* Press `Ctrl+Space` (Windows, Linux, macOS) to see a list of Markdown snippets.
-
-## For more information
-
-* [Visual Studio Code's Markdown Support](http://code.visualstudio.com/docs/languages/markdown)
-* [Markdown Syntax Reference](https://help.github.com/articles/markdown-basics/)
-
-**Enjoy!**
+MIT
