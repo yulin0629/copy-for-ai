@@ -63,20 +63,60 @@ if (a == 10) {
 
 ## 開發
 
+### 準備開發環境
+```bash
+# 複製專案
+git clone <your-repo-url>
+cd copy-for-ai
+
+# 安裝依賴
+npm install
+```
+
 ### 建置
 ```bash
 npm run compile
 ```
 
-### 監視模式
+### 監視模式（開發時使用）
 ```bash
 npm run watch
 ```
 
-### 打包
+### 測試擴展
 ```bash
-npm run package
+# 方法 1: 使用 F5 鍵
+# 在 VSCode 中開啟專案，然後按 F5 啟動新的 VSCode 視窗進行測試
+
+# 方法 2: 使用命令列
+code --extensionDevelopmentPath=${PWD}
 ```
+
+### 打包擴展
+```bash
+# 先確保你已安裝 vsce
+npm install -g @vscode/vsce
+
+# 打包擴展為 .vsix 檔案
+vsce package
+```
+這將在專案根目錄生成一個 `copy-for-ai-0.0.1.vsix` 檔案（版本號可能不同）。
+
+### 發佈到 VSCode 市集
+
+1. 在 [Azure DevOps](https://dev.azure.com/) 創建帳號
+2. 創建一個組織和 Personal Access Token (PAT)
+3. 使用以下命令發佈：
+
+```bash
+# 登入
+vsce login <發布者名稱>
+
+# 發佈
+vsce publish
+```
+
+詳細的發佈指南請參考 [VSCode 官方文件](https://code.visualstudio.com/api/working-with-extensions/publishing-extension)。
 
 ## 授權
 
