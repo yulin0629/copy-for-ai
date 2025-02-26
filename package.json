@@ -15,7 +15,8 @@
     "commands": [
       {
         "command": "copy-for-ai.copyForAI",
-        "title": "Copy For AI"
+        "title": "Copy For AI",
+        "category": "Copy For AI"
       }
     ],
     "menus": {
@@ -25,8 +26,22 @@
           "command": "copy-for-ai.copyForAI",
           "group": "clipboard"
         }
+      ],
+      "commandPalette": [
+        {
+          "command": "copy-for-ai.copyForAI",
+          "when": "editorHasSelection"
+        }
       ]
-    }
+    },
+    "keybindings": [
+      {
+        "command": "copy-for-ai.copyForAI",
+        "key": "ctrl+alt+c",
+        "mac": "cmd+alt+c",
+        "when": "editorHasSelection"
+      }
+    ]
   },
   "scripts": {
     "vscode:prepublish": "npm run package",
