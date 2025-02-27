@@ -25,7 +25,7 @@
 
 ### 基本複製格式
 
-```markdown
+````markdown
 ## File: extension.ts (10-20)
 
 ```typescript
@@ -33,11 +33,11 @@ function activate(context) {
     // 程式碼內容
 }
 ```
-```
+````
 
 ### 增強複製格式 (Markdown)
 
-```markdown
+````markdown
 # CODE CONTEXT
 -----------------
 
@@ -59,7 +59,7 @@ function activate(context) {
 }
 ```
 -----------------
-```
+````
 
 ## 使用方法
 
