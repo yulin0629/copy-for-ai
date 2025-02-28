@@ -44,6 +44,11 @@
         "command": "copy-for-ai.copyForAIWithContext",
         "title": "Copy For AI (With Context)",
         "category": "Copy For AI"
+      },
+      {
+        "command": "copy-for-ai.configureExcludePatterns",
+        "title": "設定排除模式",
+        "category": "Copy For AI"
       }
     ],
     "menus": {
@@ -67,6 +72,16 @@
         {
           "command": "copy-for-ai.copyForAIWithContext",
           "when": "editorHasSelection"
+        },
+        {
+          "command": "copy-for-ai.configureExcludePatterns"
+        }
+      ],
+      "view/title": [
+        {
+          "command": "copy-for-ai.configureExcludePatterns",
+          "when": "view == copy-for-ai.contextExplorer",
+          "group": "navigation"
         }
       ]
     },
@@ -126,7 +141,7 @@
         "copyForAI.tokenLimit": {
           "type": "number",
           "default": 0,
-          "description": "預設 token 上限（0 表示無上限）"
+          "description": "預設 token 上限（0 表示無上限）。設定後會顯示檔案 token 百分比及進度條。"
         },
         "copyForAI.contextExplorer.excludePatterns": {
           "type": "array",
@@ -140,7 +155,12 @@
             "**/build/**",
             "**/bin/**"
           ],
-          "description": "Context Explorer 中排除的檔案模式"
+          "description": "檔案瀏覽器中要排除的檔案模式。支援 glob 模式，例如 '**/node_modules/**' 表示排除所有 node_modules 資料夾及其內容。此設定會與 .gitignore 檔案中的模式合併使用。"
+        },
+        "copyForAI.contextExplorer.followGitignore": {
+          "type": "boolean",
+          "default": true,
+          "description": "是否遵循 .gitignore 檔案中定義的排除規則"
         }
       }
     }
@@ -175,6 +195,7 @@
     "typescript": "^5.7.3"
   },
   "dependencies": {
-    "strip-comments": "^2.0.1"
+    "strip-comments": "^2.0.1",
+    "ignore": "^5.3.0"
   }
 }

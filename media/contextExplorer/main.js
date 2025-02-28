@@ -18,11 +18,13 @@
     const filterInput = document.getElementById('filter-input');
     const clearFilterButton = document.getElementById('clear-filter');
     const showSelectedOnlyCheckbox = document.getElementById('show-selected-only');
+    const configureButton = document.getElementById('configure-button');
     const fileListElement = document.getElementById('file-list');
     const selectedCountElement = document.getElementById('selected-count');
     const tokensCountElement = document.getElementById('tokens-count');
     const progressContainer = document.getElementById('progress-container');
     const progressBar = document.getElementById('progress-bar');
+    const progressPercentage = document.getElementById('progress-percentage');
     const copyButton = document.getElementById('copy-button');
     
     // 防抖函數 - 用於搜尋輸入優化
@@ -53,8 +55,14 @@
             }
         });
         
+        // 初始隱藏清除按鈕
+        updateClearButtonVisibility();
+        
         // 僅顯示已選取勾選框變更事件
         showSelectedOnlyCheckbox.addEventListener('change', handleShowSelectedOnlyChange);
+        
+        // 設定按鈕點擊事件
+        configureButton.addEventListener('click', handleConfigureClick);
         
         // 複製按鈕點擊事件
         copyButton.addEventListener('click', handleCopyClick);
@@ -64,6 +72,12 @@
     function initialize() {
         setupEventListeners();
         
+        // 恢復之前的狀態
+        const previousState = vscode.getState();
+        if (previousState) {
+            Object.assign(state, previousState);
+        }
+        
         // 請求檔案列表
         vscode.postMessage({ command: 'getFiles' });
     }
@@ -71,20 +85,45 @@
     // 篩選變更處理函數
     function handleFilterChange() {
         state.filter = filterInput.value.toLowerCase();
+        updateClearButtonVisibility();
         renderFileList();
+        
+        // 保存狀態
+        vscode.setState(state);
+    }
+    
+    // 更新清除按鈕可見性
+    function updateClearButtonVisibility() {
+        if (filterInput.value.length > 0) {
+            clearFilterButton.style.display = 'block';
+        } else {
+            clearFilterButton.style.display = 'none';
+        }
     }
     
     // 清除篩選
     function clearFilter() {
         filterInput.value = '';
         state.filter = '';
+        updateClearButtonVisibility();
         renderFileList();
+        
+        // 保存狀態
+        vscode.setState(state);
     }
     
     // 僅顯示已選取處理函數
     function handleShowSelectedOnlyChange() {
         state.showSelectedOnly = showSelectedOnlyCheckbox.checked;
         renderFileList();
+        
+        // 保存狀態
+        vscode.setState(state);
+    }
+    
+    // 設定按鈕點擊處理函數
+    function handleConfigureClick() {
+        vscode.postMessage({ command: 'openSettings' });
     }
     
     // 複製按鈕點擊處理函數
@@ -117,7 +156,7 @@
                             console.error(`無法解析檔案 URI: ${item.uri}`, e);
                         }
                     }
-                } else if (item.type === 'folder' && item.children) {
+                } else if ((item.type === 'folder' || item.type === 'root') && item.children) {
                     findSelectedFiles(item.children);
                 }
             }
@@ -170,13 +209,126 @@
         // 清空檔案列表
         fileListElement.innerHTML = '';
         
-        // 渲染根層級的檔案和資料夾
-        for (const item of state.files) {
-            renderFileItem(item, 0);
+        // 確定是否為搜尋模式
+        const isSearchMode = !!state.filter;
+        
+        if (isSearchMode) {
+            // 搜尋模式：顯示扁平列表
+            renderSearchResults();
+        } else {
+            // 一般模式：顯示樹狀結構
+            // 渲染根層級的檔案和資料夾
+            for (const item of state.files) {
+                renderFileItem(item, 0);
+            }
         }
         
         // 更新摘要
         updateSummary();
+    }
+    
+    // 渲染搜尋結果為扁平列表
+    function renderSearchResults() {
+        // 收集所有符合篩選條件的檔案
+        const matchingItems = [];
+        
+        // 深度優先搜尋找出符合的檔案
+        function findMatchingItems(items, parentPath = '') {
+            for (const item of items) {
+                const fullPath = parentPath ? `${parentPath} › ${item.name}` : item.name;
+                
+                if (passesFilter(item)) {
+                    // 如果僅顯示已選取，檢查選取狀態
+                    if (!state.showSelectedOnly || isItemOrChildrenSelected(item)) {
+                        matchingItems.push({
+                            item: item,
+                            displayPath: fullPath
+                        });
+                    }
+                }
+                
+                // 繼續搜尋子項目
+                if ((item.type === 'folder' || item.type === 'root') && item.children) {
+                    findMatchingItems(item.children, fullPath);
+                }
+            }
+        }
+        
+        findMatchingItems(state.files);
+        
+        // 渲染搜尋結果
+        if (matchingItems.length === 0) {
+            // 無搜尋結果
+            const emptyElement = document.createElement('div');
+            emptyElement.className = 'empty-search';
+            emptyElement.textContent = `沒有符合「${state.filter}」的檔案`;
+            fileListElement.appendChild(emptyElement);
+        } else {
+            // 渲染搜尋結果
+            for (const { item, displayPath } of matchingItems) {
+                renderSearchResultItem(item, displayPath);
+            }
+        }
+    }
+    
+    // 渲染單個搜尋結果項目
+    function renderSearchResultItem(item, displayPath) {
+        const itemElement = document.createElement('div');
+        itemElement.className = 'file-item search-result';
+        
+        // 創建勾選框
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.className = 'file-checkbox';
+        checkbox.checked = !!state.selectionState[item.path];
+        
+        // 勾選事件
+        checkbox.addEventListener('change', () => {
+            handleItemSelection(item, checkbox.checked);
+        });
+        
+        itemElement.appendChild(checkbox);
+        
+        // 檔案/資料夾圖示
+        const iconElement = document.createElement('span');
+        iconElement.className = item.type === 'file' ? 'file-icon' : 
+                              (item.type === 'root' ? 'root-icon' : 'folder-icon');
+        itemElement.appendChild(iconElement);
+        
+        // 名稱與路徑
+        const nameContainer = document.createElement('div');
+        nameContainer.className = 'search-result-container';
+        
+        const nameElement = document.createElement('span');
+        nameElement.className = 'file-name';
+        nameElement.textContent = item.name;
+        
+        const pathElement = document.createElement('span');
+        pathElement.className = 'search-result-path';
+        pathElement.textContent = displayPath;
+        pathElement.title = item.path; // 提示完整路徑
+        
+        nameContainer.appendChild(nameElement);
+        nameContainer.appendChild(pathElement);
+        itemElement.appendChild(nameContainer);
+        
+        // Tokens 數量
+        if (item.estimatedTokens !== undefined) {
+            const tokensElement = document.createElement('span');
+            tokensElement.className = 'file-tokens';
+            
+            if (state.tokenLimit > 0) {
+                const percentage = Math.min(100, Math.round((item.estimatedTokens / state.tokenLimit) * 100));
+                tokensElement.textContent = `${item.estimatedTokens} (${percentage}%)`;
+            } else {
+                tokensElement.textContent = item.estimatedTokens;
+            }
+            
+            itemElement.appendChild(tokensElement);
+        }
+        
+        // 添加到列表
+        fileListElement.appendChild(itemElement);
     }
     
     // 渲染單個檔案項目
@@ -199,7 +351,7 @@
         // 設置勾選狀態
         if (item.type === 'file') {
             checkbox.checked = !!state.selectionState[item.path];
-        } else if (item.type === 'folder') {
+        } else if (item.type === 'folder' || item.type === 'root') {
             // 檢查資料夾的子項目是否已全部、部分或無勾選
             const folderState = getFolderSelectionState(item);
             checkbox.checked = folderState === 'all' || folderState === 'partial';
@@ -214,7 +366,7 @@
         itemElement.appendChild(checkbox);
         
         // 展開/摺疊圖示 (僅用於資料夾)
-        if (item.type === 'folder') {
+        if (item.type === 'folder' || item.type === 'root') {
             const expandIcon = document.createElement('span');
             expandIcon.className = 'expand-icon ' + 
                                  (state.expandedFolders[item.path] ? 'expanded-icon' : 'collapsed-icon');
@@ -227,7 +379,13 @@
         
         // 檔案/資料夾圖示
         const iconElement = document.createElement('span');
-        iconElement.className = item.type === 'folder' ? 'folder-icon' : 'file-icon';
+        if (item.type === 'root') {
+            iconElement.className = 'root-icon';
+        } else if (item.type === 'folder') {
+            iconElement.className = 'folder-icon';
+        } else {
+            iconElement.className = 'file-icon';
+        }
         itemElement.appendChild(iconElement);
         
         // 名稱
@@ -237,8 +395,8 @@
         nameElement.title = item.path; // 提示完整路徑
         itemElement.appendChild(nameElement);
         
-        // Tokens 數量 (僅檔案)
-        if (item.type === 'file' && item.estimatedTokens !== undefined) {
+        // Tokens 數量 (檔案與資料夾)
+        if (item.estimatedTokens !== undefined) {
             const tokensElement = document.createElement('span');
             tokensElement.className = 'file-tokens';
             
@@ -256,7 +414,10 @@
         fileListElement.appendChild(itemElement);
         
         // 如果是展開的資料夾，渲染子項目
-        if (item.type === 'folder' && state.expandedFolders[item.path] && item.children) {
+        if ((item.type === 'folder' || item.type === 'root') && 
+            state.expandedFolders[item.path] && 
+            item.children && 
+            item.children.length > 0) {
             for (const child of item.children) {
                 renderFileItem(child, level + 1);
             }
@@ -282,7 +443,7 @@
         }
         
         // 對於資料夾，檢查子項目是否有匹配篩選
-        if (item.type === 'folder' && item.children) {
+        if ((item.type === 'folder' || item.type === 'root') && item.children) {
             for (const child of item.children) {
                 if (passesFilter(child)) {
                     return true;
@@ -299,7 +460,7 @@
             return !!state.selectionState[item.path];
         }
         
-        if (item.type === 'folder' && item.children) {
+        if ((item.type === 'folder' || item.type === 'root') && item.children) {
             // 資料夾本身沒有選取狀態，檢查子項目
             for (const child of item.children) {
                 if (isItemOrChildrenSelected(child)) {
@@ -327,7 +488,7 @@
                 if (state.selectionState[item.path]) {
                     selectedCount++;
                 }
-            } else if (item.type === 'folder' && item.children) {
+            } else if ((item.type === 'folder' || item.type === 'root') && item.children) {
                 for (const child of item.children) {
                     countSelected(child);
                 }
@@ -353,7 +514,7 @@
         if (item.type === 'file') {
             // 單個檔案選取/取消選取
             state.selectionState[item.path] = isSelected;
-        } else if (item.type === 'folder' && item.children) {
+        } else if ((item.type === 'folder' || item.type === 'root') && item.children) {
             // 資料夾選取/取消選取，連帶處理所有子項目
             selectAllChildren(item, isSelected);
         }
@@ -374,7 +535,7 @@
         for (const child of folder.children) {
             if (child.type === 'file') {
                 state.selectionState[child.path] = isSelected;
-            } else if (child.type === 'folder') {
+            } else if (child.type === 'folder' || child.type === 'root') {
                 selectAllChildren(child, isSelected);
             }
         }
@@ -405,7 +566,7 @@
                     if (item.estimatedTokens !== undefined) {
                         totalTokens += item.estimatedTokens;
                     }
-                } else if (item.type === 'folder' && item.children) {
+                } else if ((item.type === 'folder' || item.type === 'root') && item.children) {
                     countTokensAndFiles(item.children);
                 }
             }
@@ -419,10 +580,11 @@
         
         // 更新進度條
         if (state.tokenLimit > 0) {
-            progressContainer.style.display = 'block';
+            progressContainer.style.display = 'flex';
             const percentage = Math.min(100, Math.round((totalTokens / state.tokenLimit) * 100));
             progressBar.style.width = `${percentage}%`;
-            progressBar.title = `${percentage}% of token limit`;
+            progressPercentage.textContent = `${percentage}%`;
+            progressContainer.title = `${totalTokens} / ${state.tokenLimit} tokens (${percentage}%)`;
         } else {
             progressContainer.style.display = 'none';
         }
@@ -433,6 +595,15 @@
     
     // 保存狀態
     function saveState() {
+        // 保存到 VSCode 視圖狀態
+        vscode.setState({
+            selectionState: state.selectionState,
+            expandedFolders: state.expandedFolders,
+            filter: state.filter,
+            showSelectedOnly: state.showSelectedOnly
+        });
+        
+        // 同時保存到擴展持久化存儲
         vscode.postMessage({
             command: 'saveState',
             state: {
@@ -450,18 +621,27 @@
             case 'initialize':
                 // 初始化檔案列表和狀態
                 state.files = message.files || [];
-                state.selectionState = message.savedState?.selectionState || {};
-                state.expandedFolders = message.savedState?.expandedFolders || {};
+                
+                // 只在首次載入或沒有狀態時使用保存的狀態
+                const currentState = vscode.getState();
+                if (!currentState || !currentState.selectionState) {
+                    state.selectionState = message.savedState?.selectionState || {};
+                    state.expandedFolders = message.savedState?.expandedFolders || {};
+                }
+                
                 state.tokenLimit = message.tokenLimit || 0;
                 
                 // 預設展開根資料夾
                 if (state.files && state.files.length > 0) {
                     for (const rootItem of state.files) {
-                        if (rootItem.type === 'folder') {
+                        if (rootItem.type === 'folder' || rootItem.type === 'root') {
                             state.expandedFolders[rootItem.path] = true;
                         }
                     }
                 }
+                
+                // 保存初始狀態
+                vscode.setState(state);
                 
                 // 渲染檔案列表
                 renderFileList();

@@ -20,6 +20,11 @@ export function activate(context: vscode.ExtensionContext) {
         await copyForAI(true);
     });
 
+    // 註冊設定排除模式命令
+    const configureCommand = vscode.commands.registerCommand('copy-for-ai.configureExcludePatterns', () => {
+        vscode.commands.executeCommand('workbench.action.openSettings', 'copyForAI.contextExplorer.excludePatterns');
+    });
+
     // 註冊 Context Explorer 視圖
     const contextExplorerProvider = new ContextExplorerProvider(context);
     const contextExplorerView = vscode.window.registerWebviewViewProvider(
@@ -27,7 +32,12 @@ export function activate(context: vscode.ExtensionContext) {
         contextExplorerProvider
     );
 
-    context.subscriptions.push(basicCopyCommand, contextCopyCommand, contextExplorerView);
+    context.subscriptions.push(
+        basicCopyCommand, 
+        contextCopyCommand, 
+        configureCommand,
+        contextExplorerView
+    );
 }
 
 /**

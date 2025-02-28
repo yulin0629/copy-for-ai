@@ -2,17 +2,19 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
 import { formatOutput } from '../formatter';
+import * as gitignore from 'ignore'; // 需添加此依賴
 
 /**
  * 表示檔案樹中的節點（檔案或資料夾）
  */
 interface TreeNode {
-    type: 'file' | 'folder';
+    type: 'file' | 'folder' | 'root';
     name: string;
     path: string;
     uri?: string;
+    fsPath?: string;
     estimatedTokens?: number;
-    children?: Record<string, TreeNode>;
+    children?: TreeNode[];
 }
 
 /**
@@ -26,6 +28,7 @@ export class ContextExplorerProvider implements vscode.WebviewViewProvider {
     private _context: vscode.ExtensionContext;
     private _fileSystemWatcher?: vscode.FileSystemWatcher;
     private _outputChannel: vscode.OutputChannel;
+    private _gitignorePatterns?: string[];
 
     constructor(context: vscode.ExtensionContext) {
         this._extensionUri = context.extensionUri;
@@ -130,6 +133,14 @@ export class ContextExplorerProvider implements vscode.WebviewViewProvider {
 
         // 初始化 WebView
         this._initializeWebView();
+
+        // 視圖可見性變更時保留狀態
+        webviewView.onDidChangeVisibility(() => {
+            if (webviewView.visible) {
+                this._log('WebView 變為可見，恢復狀態');
+                this._initializeWebView();
+            }
+        });
     }
 
     /**
@@ -168,13 +179,24 @@ export class ContextExplorerProvider implements vscode.WebviewViewProvider {
                 <!-- 篩選框 -->
                 <div class="filter-box">
                     <div class="search-container">
-                        <i class="search-icon">🔍</i>
+                        <svg class="search-icon" width="16" height="16" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
+                            <path fill-rule="evenodd" clip-rule="evenodd" d="M10.442 10.442a1 1 0 0 1 1.415 0l3.85 3.85a1 1 0 0 1-1.414 1.415l-3.85-3.85a1 1 0 0 1 0-1.415z" fill="currentColor"/>
+                            <path fill-rule="evenodd" clip-rule="evenodd" d="M6.5 12a5.5 5.5 0 1 0 0-11 5.5 5.5 0 0 0 0 11zM6.5 2a4 4 0 1 1 0 8 4 4 0 0 1 0-8z" fill="currentColor"/>
+                        </svg>
                         <input type="text" id="filter-input" placeholder="搜尋檔案...">
                         <button id="clear-filter" class="clear-button">✕</button>
                     </div>
-                    <div class="show-selected-container">
-                        <input type="checkbox" id="show-selected-only">
-                        <label for="show-selected-only">僅顯示已選取</label>
+                    <div class="options-container">
+                        <div class="show-selected-container">
+                            <input type="checkbox" id="show-selected-only">
+                            <label for="show-selected-only">僅顯示已選取</label>
+                        </div>
+                        <button id="configure-button" class="configure-button" title="設定排除規則">
+                            <svg width="16" height="16" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
+                                <path fill-rule="evenodd" clip-rule="evenodd" d="M9.1 4.4L8.6 2H7.4l-.5 2.4-.7.3-2-1.3-.9.8 1.3 2-.2.7-2.4.5v1.2l2.4.5.3.8-1.3 2 .8.8 2-1.3.8.3.4 2.3h1.2l.5-2.4.8-.3 2 1.3.8-.8-1.3-2 .3-.8 2.3-.4V7.4l-2.3-.5-.3-.8 1.3-2-.8-.8-2 1.3-.8-.3z" fill="currentColor"/>
+                                <path fill-rule="evenodd" clip-rule="evenodd" d="M8 9.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zM8 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6z" fill="currentColor"/>
+                            </svg>
+                        </button>
                     </div>
                 </div>
                 
@@ -192,6 +214,7 @@ export class ContextExplorerProvider implements vscode.WebviewViewProvider {
                         </div>
                         <div id="progress-container" class="progress-container" style="display: none;">
                             <div id="progress-bar" class="progress-bar"></div>
+                            <span id="progress-percentage" class="progress-percentage">0%</span>
                         </div>
                     </div>
                     <button id="copy-button" class="copy-button" disabled>複製到剪貼簿</button>
@@ -261,6 +284,11 @@ export class ContextExplorerProvider implements vscode.WebviewViewProvider {
                 this._log(`收到複製請求，選取的檔案: ${message.selectedFiles.length} 個`);
                 await this._copySelectedFilesToClipboard(message.selectedFiles);
                 break;
+                
+            case 'openSettings':
+                // 開啟設定編輯器
+                vscode.commands.executeCommand('workbench.action.openSettings', 'copyForAI.contextExplorer.excludePatterns');
+                break;
             
             default:
                 this._log(`未知的 WebView 訊息指令: ${message.command}`);
@@ -294,9 +322,35 @@ export class ContextExplorerProvider implements vscode.WebviewViewProvider {
     }
 
     /**
+     * 讀取 .gitignore 檔案
+     */
+    private async _loadGitIgnore(): Promise<string[]> {
+        const workspaceFolders = vscode.workspace.workspaceFolders;
+        if (!workspaceFolders) {
+            return [];
+        }
+
+        try {
+            const gitignorePath = path.join(workspaceFolders[0].uri.fsPath, '.gitignore');
+            
+            if (fs.existsSync(gitignorePath)) {
+                const content = fs.readFileSync(gitignorePath, 'utf8');
+                return content
+                    .split('\n')
+                    .map(line => line.trim())
+                    .filter(line => line && !line.startsWith('#'));
+            }
+        } catch (error) {
+            this._logError('讀取 .gitignore 失敗', error);
+        }
+        
+        return [];
+    }
+
+    /**
      * 獲取工作區檔案
      */
-    private async _getWorkspaceFiles(): Promise<any[]> {
+    private async _getWorkspaceFiles(): Promise<TreeNode[]> {
         const workspaceFolders = vscode.workspace.workspaceFolders;
         if (!workspaceFolders) {
             this._log('無工作區資料夾，無法取得檔案');
@@ -308,8 +362,13 @@ export class ContextExplorerProvider implements vscode.WebviewViewProvider {
         const excludePatterns = config.get<string[]>('contextExplorer.excludePatterns', 
             ['**/node_modules/**', '**/.git/**', '**/dist/**', '**/build/**', '**/bin/**']);
         
+        // 載入 .gitignore 檔案
+        const gitignorePatterns = await this._loadGitIgnore();
+        this._log(`.gitignore 包含 ${gitignorePatterns.length} 個規則`);
+        
         // 組合排除模式
-        const excludePattern = `{${excludePatterns.join(',')}}`;
+        const allExcludePatterns = [...excludePatterns, ...gitignorePatterns.map(p => `**/${p}`)];
+        const excludePattern = `{${allExcludePatterns.join(',')}}`;
         
         try {
             // 獲取所有檔案
@@ -322,7 +381,19 @@ export class ContextExplorerProvider implements vscode.WebviewViewProvider {
             this._log(`過濾後剩餘 ${textFiles.length} 個文字檔案`);
             
             // 轉換為樹狀結構
-            return this._filesToTree(textFiles, workspaceFolders[0].uri);
+            const fileTree = this._filesToTree(textFiles, workspaceFolders[0].uri);
+            
+            // 添加根目錄節點
+            const rootNode: TreeNode = {
+                type: 'root',
+                name: path.basename(workspaceFolders[0].uri.fsPath) || '專案根目錄',
+                path: '/',
+                fsPath: workspaceFolders[0].uri.fsPath,
+                children: fileTree,
+                estimatedTokens: this._calculateFolderTokens(fileTree)
+            };
+            
+            return [rootNode];
         } catch (error) {
             this._logError('獲取工作區檔案時出錯', error);
             return [];
@@ -349,46 +420,145 @@ export class ContextExplorerProvider implements vscode.WebviewViewProvider {
     /**
      * 將檔案轉換為樹狀結構
      */
-    private _filesToTree(files: vscode.Uri[], rootUri: vscode.Uri): any[] {
-        const tree: any = {};
+    private _filesToTree(files: vscode.Uri[], rootUri: vscode.Uri): TreeNode[] {
+        // 使用物件作為中間表示形式
+        const folderMap: Record<string, {
+            node: TreeNode;
+            children: Record<string, TreeNode>;
+        }> = {};
         
         // 建立樹狀結構
         for (const file of files) {
             const relativePath = vscode.workspace.asRelativePath(file, false);
             const parts = relativePath.split(path.sep);
             
-            let currentLevel = tree;
-            for (let i = 0; i < parts.length; i++) {
+            let currentPath = '';
+            
+            // 確保每一層路徑都創建對應的資料夾節點
+            for (let i = 0; i < parts.length - 1; i++) {
                 const part = parts[i];
-                const isFile = i === parts.length - 1;
-                const currentPath = parts.slice(0, i + 1).join(path.sep);
+                currentPath = currentPath ? `${currentPath}${path.sep}${part}` : part;
                 
-                if (!currentLevel[part]) {
-                    currentLevel[part] = isFile 
-                        ? { 
-                            type: 'file', 
+                if (!folderMap[currentPath]) {
+                    folderMap[currentPath] = {
+                        node: {
+                            type: 'folder',
                             name: part,
                             path: currentPath,
-                            fsPath: file.fsPath,  // 新增 fsPath 以保存完整的檔案系統路徑
-                            uri: file.toString(),
-                            estimatedTokens: this._estimateTokens(file.fsPath)
-                        } 
-                        : { 
-                            type: 'folder', 
-                            name: part,
-                            path: currentPath,
-                            children: {}
-                        };
+                            children: []
+                        },
+                        children: {}
+                    };
                 }
-                
-                if (!isFile) {
-                    currentLevel = currentLevel[part].children;
+            }
+            
+            // 處理檔案
+            const fileName = parts[parts.length - 1];
+            const filePath = parts.join(path.sep);
+            const parentPath = parts.slice(0, parts.length - 1).join(path.sep);
+            
+            // 估算檔案 tokens
+            const estimatedTokens = this._estimateTokens(file.fsPath);
+            
+            // 建立檔案節點
+            const fileNode: TreeNode = {
+                type: 'file',
+                name: fileName,
+                path: filePath,
+                fsPath: file.fsPath,
+                uri: file.toString(),
+                estimatedTokens
+            };
+            
+            // 將檔案加入到父資料夾
+            if (parentPath) {
+                folderMap[parentPath].children[fileName] = fileNode;
+            } else {
+                // 處理根目錄下的檔案
+                if (!folderMap['root']) {
+                    folderMap['root'] = {
+                        node: {
+                            type: 'folder',
+                            name: 'root',
+                            path: '',
+                            children: []
+                        },
+                        children: {}
+                    };
+                }
+                folderMap['root'].children[fileName] = fileNode;
+            }
+        }
+        
+        // 將資料夾樹狀結構轉換為陣列
+        const result: TreeNode[] = [];
+        
+        // 轉換為最終的樹狀結構
+        for (const [folderPath, folder] of Object.entries(folderMap)) {
+            const childrenArray: TreeNode[] = Object.values(folder.children);
+            folder.node.children = childrenArray;
+        }
+        
+        // 為每個資料夾建立正確的父子關係
+        for (const [folderPath, folder] of Object.entries(folderMap)) {
+            const parts = folderPath.split(path.sep);
+            
+            if (parts.length === 1) {
+                // 頂層資料夾直接加入結果
+                if (folderPath !== 'root') {
+                    result.push(folder.node);
+                }
+            } else {
+                // 將子資料夾加入到父資料夾
+                const parentPath = parts.slice(0, parts.length - 1).join(path.sep);
+                if (folderMap[parentPath]) {
+                    const parentNode = folderMap[parentPath].node;
+                    if (parentNode.children) {
+                        parentNode.children.push(folder.node);
+                    }
                 }
             }
         }
         
-        // 轉換為陣列結構
-        return this._treeToArray(tree);
+        // 加入根目錄下的檔案
+        if (folderMap['root']) {
+            const rootFiles = Object.values(folderMap['root'].children);
+            result.push(...rootFiles);
+        }
+        
+        // 計算每個資料夾的 tokens
+        for (const [folderPath, folder] of Object.entries(folderMap)) {
+            if (folder.node.children && folder.node.children.length > 0) {
+                folder.node.estimatedTokens = this._calculateFolderTokens(folder.node.children);
+            }
+        }
+        
+        // 先資料夾後檔案排序
+        result.sort((a, b) => {
+            if (a.type === b.type) {
+                return a.name.localeCompare(b.name);
+            }
+            return a.type === 'folder' ? -1 : 1;
+        });
+        
+        return result;
+    }
+
+    /**
+     * 計算資料夾的 tokens 總和
+     */
+    private _calculateFolderTokens(items: TreeNode[]): number {
+        let totalTokens = 0;
+        
+        for (const item of items) {
+            if (item.type === 'file' && item.estimatedTokens) {
+                totalTokens += item.estimatedTokens;
+            } else if ((item.type === 'folder' || item.type === 'root') && item.children) {
+                totalTokens += this._calculateFolderTokens(item.children);
+            }
+        }
+        
+        return totalTokens;
     }
 
     /**
@@ -406,35 +576,6 @@ export class ContextExplorerProvider implements vscode.WebviewViewProvider {
             this._logError(`估算檔案 tokens 出錯：${filePath}`, error);
             return 0;
         }
-    }
-
-    /**
-     * 將樹狀結構轉換為陣列結構
-     */
-    private _treeToArray(tree: any): any[] {
-        const result: any[] = [];
-        
-        for (const [name, node] of Object.entries(tree)) {
-            const typedNode = node as TreeNode;
-            if (typedNode.type === 'file') {
-                result.push(typedNode);
-            } else {
-                result.push({
-                    ...typedNode,
-                    children: this._treeToArray(typedNode.children)
-                });
-            }
-        }
-        
-        // 先資料夾後檔案排序
-        result.sort((a, b) => {
-            if (a.type === b.type) {
-                return a.name.localeCompare(b.name);
-            }
-            return a.type === 'folder' ? -1 : 1;
-        });
-        
-        return result;
     }
 
     /**

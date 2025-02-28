@@ -76,7 +76,8 @@ body, html {
     left: 6px;
     top: 50%;
     transform: translateY(-50%);
-    font-size: 12px;
+    width: 16px;
+    height: 16px;
     color: var(--vscode-descriptionForeground);
 }
 
@@ -106,10 +107,17 @@ body, html {
     padding: 0;
     margin: 0;
     line-height: 1;
+    display: none; /* 預設隱藏 */
 }
 
 .clear-button:hover {
     color: var(--foreground-color);
+}
+
+.options-container {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
 }
 
 .show-selected-container {
@@ -120,6 +128,28 @@ body, html {
 
 .show-selected-container input {
     margin-right: 6px;
+}
+
+.configure-button {
+    background: transparent;
+    border: none;
+    color: var(--vscode-descriptionForeground);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2px;
+    border-radius: 3px;
+}
+
+.configure-button:hover {
+    background-color: var(--hover-color);
+    color: var(--foreground-color);
+}
+
+.configure-button svg {
+    width: 14px;
+    height: 14px;
 }
 
 /* 檔案列表 */
@@ -170,13 +200,18 @@ body, html {
     font-size: 8px;
 }
 
-.folder-icon, .file-icon {
+.folder-icon, .file-icon, .root-icon {
     width: 16px;
     height: 16px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     margin-right: 6px;
+}
+
+.root-icon::before {
+    content: "🏠";
+    font-size: 14px;
 }
 
 .folder-icon::before {
@@ -201,6 +236,38 @@ body, html {
     color: var(--vscode-descriptionForeground);
     font-size: 12px;
     white-space: nowrap;
+}
+
+/* 搜尋結果樣式 */
+.search-result {
+    margin-bottom: 2px;
+    border-left: 3px solid transparent;
+}
+
+.search-result:hover {
+    border-left-color: var(--vscode-focusBorder);
+}
+
+.search-result-container {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-width: 0; /* 確保flex項目可以正確收縮 */
+}
+
+.search-result-path {
+    font-size: 11px;
+    color: var(--vscode-descriptionForeground);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.empty-search {
+    padding: 16px;
+    text-align: center;
+    color: var(--vscode-descriptionForeground);
+    font-style: italic;
 }
 
 /* 底部摘要列 */
@@ -234,6 +301,8 @@ body, html {
     border: none;
     border-radius: 2px;
     overflow: hidden;
+    position: relative;
+    display: none; /* 預設隱藏 */
 }
 
 .progress-bar {
@@ -241,6 +310,14 @@ body, html {
     width: 0%;
     background-color: var(--progress-bar-background);
     transition: width 0.3s ease;
+}
+
+.progress-percentage {
+    position: absolute;
+    right: -20px;
+    top: -1px;
+    font-size: 10px;
+    color: var(--vscode-descriptionForeground);
 }
 
 .copy-button {
@@ -344,6 +421,9 @@ body, html {
     .file-icon::before {
         content: "📄";
     }
+    .root-icon::before {
+        content: "🏠";
+    }
 }
 
 @media (prefers-color-scheme: light) {
@@ -352,6 +432,9 @@ body, html {
     }
     .file-icon::before {
         content: "📄";
+    }
+    .root-icon::before {
+        content: "🏠";
     }
 }
 

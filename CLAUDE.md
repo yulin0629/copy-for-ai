@@ -7,6 +7,8 @@
 - `npm run lint` - Run ESLint for code style checks
 - `npm run test` - Run all tests
 - `npm run package` - Package for production
+- `npm run watch:esbuild` - Watch only esbuild changes
+- `npm run watch:tsc` - Watch only TypeScript type checking
 
 ## Code Style Guidelines
 - **Naming**: camelCase for variables/functions, PascalCase for classes/types/interfaces
@@ -19,3 +21,4 @@
 - **Language**: Write comments in Traditional Chinese (zh-TW)
 - **Variables**: Favor const over let, avoid var
 - **Functions**: Prefer small, focused functions with descriptive names
+- **Extension UI**: Any user-facing text should be in Traditional Chinese (zh-TW)
