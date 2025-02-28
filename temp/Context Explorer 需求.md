@@ -13,7 +13,7 @@
    - 勾選與取消時，面板底部的摘要列應立即反映最新的檔案數量及預估 Tokens 總量
 
 2. **檔案列表與篩選功能**
-   - 檔案列表呈現為可展開與摺疊的樹狀結構，類似 VSCode 原生 Explorer 的互動方式
+   - 檔案列表呈現為可展開與摺疊的樹狀結構
    - 提供模糊篩選功能，使用者輸入關鍵字後，即時過濾檔案列表，僅顯示檔案名稱符合條件的檔案
    - 篩選功能僅根據檔案名稱進行比對，不需額外排序
    - 提供一個開關，可讓使用者選擇是否只顯示已勾選的檔案
@@ -26,32 +26,26 @@
 
 1. **大型專案和檔案處理**
    - 實作延遲加載機制，優先載入可見範圍的檔案列表
-   - 設定單一檔案大小上限（例如 1MB），超過上限的檔案需要警告使用者
-   - 複製大型檔案時顯示進度指示器
-   - 選擇性載入檔案內容：僅在需要複製時才讀取檔案內容，而非全部預載入
+   - 設定單一檔案大小上限（例如 5MB），超過上限的檔案需要警告使用者
 
 2. **篩選性能優化**
    - 實作篩選節流（debounce，約 300ms），減少頻繁輸入時的性能問題
    - 使用效率高的模糊比對演算法，支援大型專案篩選
    - 僅在檔案名稱上執行篩選，不篩選檔案內容
-   - 考慮增量篩選策略，先顯示部分結果，再逐步完成整個篩選過程
 
 3. **檔案系統限制**
    - 預設排除特定類型的檔案或資料夾（如 node_modules、.git、build、dist、bin 等）
    - 忽略二進制檔案、圖片等非文字檔案
-   - 提供設定選項讓使用者自定義排除規則（未來功能）
 
 ## 狀態持久化機制
 
 1. **儲存機制**
    - 使用 extensionContext.globalState 存儲使用者勾選狀態和資料夾展開/摺疊狀態
    - 按專案區分儲存狀態，避免跨專案干擾
-   - 定期儲存狀態（例如選擇變更後 1 秒），避免頻繁 I/O 操作
 
 2. **檔案監控與狀態更新**
    - 使用 VSCode 的檔案系統監控 API（FileSystemWatcher）監聽檔案變化
    - 當檔案被刪除、移動或重命名時，自動更新選擇狀態
-   - 提供手動重新整理按鈕，以便使用者在檔案系統發生大量變化時能強制更新狀態
 
 ## 輸出格式與現有功能整合
 
@@ -59,9 +53,30 @@
    - 使用與現有 Copy For AI 功能相同的基本格式（簡單格式，無上下文分析）
    - 應用現有的 copyForAI.outputFormat 設定（markdown、xml、json、custom）
    - 複製整個檔案時不顯示行數，直接以檔案名稱作為標題
-   - 不添加 Copy For AI (With Context) 的進階功能
+   - 不使用 Copy For AI (With Context) 的進階功能
 
 2. **交互方式**
-   - 提供固定的側邊欄入口（推薦放置在活動欄）
-   - 提供命令面板入口：「Copy For AI: Open Context Explorer」
-   - 考慮添加快捷鍵設定選項
+   - 提供固定的側邊欄
+
+
+## 輸出格式範例
+
+````markdown
+## File: src/extension.ts
+```typescript
+import * as vscode from 'vscode';
+import { processCode, removeComments } from './codeAnalyzer';
+import { formatOutput } from './formatter';
+
+export function activate(context: vscode.ExtensionContext) {
+    console.log('擴展 "copy-for-ai" 已啟動！');
+}
+```
+
+## File: src/file2.ts
+```typescript
+export function activate(context: vscode.ExtensionContext) {
+    console.log('擴展 "copy-for-ai" 已啟動！');
+}
+```
+````

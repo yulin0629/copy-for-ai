@@ -1,69 +1,46 @@
-# Context Explorer 畫面描述
+# File Explorer Side Bar View 畫面描述
 
-## 畫面規格：Copy for AI - Context Explorer (VSCode Panel View 版本)
+## 畫面規格：Copy for AI - File Explorer Side Bar View
 
 **目的：**
 
-讓使用者在 VSCode 中選取 **目前專案** 的檔案，以便複製其內容作為 AI 模型的上下文 (context)。此視窗將作為 VSCode 的 **側邊欄面板 (Panel View)** 呈現。
+讓使用者在 VSCode 中選取 **目前專案** 的 Files，以便複製其內容作為 AI 模型的上下文 (context)。此視窗將作為 VSCode 的 **(Primary  Side Bar View)** 呈現。
 
-**整體佈局：**
+**View 整體佈局：**
 
-VSCode 側邊欄面板 (Panel View)，垂直堆疊佈局，由上而下分為五個主要區塊：
+垂直堆疊佈局，由上而下分為五個主要區塊：
 
-1. **標題列 (Panel Header)**
-2. **篩選與搜尋列 (Filter & Search Bar)**
-3. **工具列 (Toolbar)**
-4. **檔案列表區塊 (File List Area)**
-5. **面板底部摘要列含複製按鈕 (Panel Footer Summary Bar)**
+1. **標題列 (Header)**
+2. **篩選框 (Filter Box)**
+3. **檔案列表區塊 (File List Area)**
+4. **底部摘要列含複製按鈕 (Footer Summary Bar)**
 
 **區塊與元素詳細描述：**
 
-### 1. 標題列 (Panel Header)
+### 1. 標題列 (Header)
 
-* **元素類型：** 容器 (Panel Header)
-* **位置：** 視窗頂部 (Panel View 的頂部)
+* **元素類型：** Label (Header)
+* **位置：** 視窗頂部 (Side Bar View 的頂部)
 * **元素：**
-    * **標題文字：** "Copy for AI - Context Explorer"
-        * **樣式：**  Panel Header 標準樣式。
+    * **標題文字：** "Copy for AI - File Explorer"
+        * **樣式：** Header 標準樣式。
 
-### 2. 篩選與搜尋列 (Filter & Search Bar)
+### 2. 篩選框 (Filter Box)
 
 * **元素類型：** 容器 (Container)
 * **位置：** 標題列下方
 * **元素：**
-    * **專案資訊顯示：** (文字) 例如 "copy-for-ai"，顯示目前開啟的專案名稱
-        * **功能：** 顯示目前的專案資訊。
     * **篩選輸入框：** (文字輸入框) 預設文字 "Search files"，位於面板內部頂端，如圖所示
         * **功能：** 允許使用者輸入關鍵字篩選檔案。
-        * **行為：** 輸入時即時篩選檔案清單，根據檔案名稱進行模糊比對，顯示符合條件的檔案。
+        * **行為：** 輸入時即時篩選檔案清單，根據檔案路徑與名稱進行模糊比對，顯示符合條件的檔案。
     * **清除篩選按鈕 (X 圖示)：** (按鈕)
         * **功能：** 清除篩選框內容。
         * **行為：** 點擊後清空篩選框並重置檔案列表。
 
-### 3. 工具列 (Toolbar)
-
-* **元素類型：** 容器 (Container)
-* **位置：** 篩選與搜尋列下方
-* **元素：**
-    * **篩選已選取檔案開關：** (Toggle Button) 文字標籤 "Show Selected Only"
-        * **功能：**  切換檔案列表顯示模式 (顯示所有檔案/僅顯示已選取檔案)。
-        * **樣式：**  Toggle Button 樣式，高亮指示目前篩選狀態。
-    * **全選按鈕：** (按鈕) "Select All"
-        * **功能：** 選取所有可見檔案。
-        * **行為：** 點擊後勾選所有當前可見的檔案。
-    * **取消全選按鈕：** (按鈕) "Deselect All"
-        * **功能：** 取消所有已選取的檔案。
-    * **展開全部按鈕：** (按鈕) 圖示或 "Expand All"
-        * **功能：** 展開所有資料夾。
-    * **摺疊全部按鈕：** (按鈕) 圖示或 "Collapse All"
-        * **功能：** 摺疊所有資料夾。
-    * **格式選擇下拉選單：** (Dropdown)
-        * **功能：** 選擇輸出格式 (Markdown、XML、JSON、Custom)。
-        * **預設值：** 採用 copyForAI.outputFormat 的設定。
 
 ### 4. 檔案列表區塊 (File List Area)
 
-* **元素類型：** 樹狀列表 (Tree View / List View)
+* **元素類型：** 樹狀列表 (Tree View)
 * **位置：** 工具列下方，面板底部摘要列上方
 * **初始狀態：** 預設展開根目錄，其他資料夾摺疊
 * **排除規則：** 自動排除 node_modules、.git、.vscode 等常見非程式碼資料夾
@@ -79,14 +56,14 @@ VSCode 側邊欄面板 (Panel View)，垂直堆疊佈局，由上而下分為五
         * **樣式：** 採用 VSCode 檔案圖示主題，與檔案總管一致。
     * **檔案/資料夾名稱：** (文字標籤)
         * **功能：** 顯示檔案或資料夾名稱。
-    * **檔案大小/tokens數量：** (文字標籤) 例如 "1050(<1%)", "2001(2%)"
-        * **功能：** 顯示檔案大小或估計的 tokens 數量及其占總容量的比例。
+    * **tokens數量(百分比)：** (文字標籤) 例如 "1050", "2001(2%)"
+        * **功能：** 顯示檔案大小或估計的 tokens 數量及其占總容量的比例，有設定 tokens 上限(>0)時，顯示百分比。
         * **位置：** 檔案名稱右側。
 
-### 5. 面板底部摘要列含複製按鈕 (Panel Footer Summary Bar)
+### 5. 底部摘要列 (Footer Summary Bar)
 
 * **元素類型：** 容器 (Container)
-* **位置：** 面板視窗底部（非 VSCode 整體底部狀態列，而是 Context Explorer 面板自身的底部區域）
+* **位置：** 面板視窗底部（非 VSCode Status Bar，而是 Context Explorer Panel自身的底部區域）
 * **元素：**
     * **選取檔案數量：** (文字標籤) 例如 "6 files selected"
         * **功能：** 顯示已選取的檔案總數。
@@ -102,22 +79,9 @@ VSCode 側邊欄面板 (Panel View)，垂直堆疊佈局，由上而下分為五
 
 **交互流程與反饋：**
 
-1. **複製過程：**
-   - 點擊「Copy to Clipboard」按鈕後，顯示進度指示器 (Progress Bar)
-   - 對於大型檔案，顯示處理進度百分比
-   - 複製過程可通過 ESC 鍵取消
-
-2. **複製成功：**
+1. **複製成功：**
    - 顯示成功通知提示 "X files copied to clipboard (Y tokens)"
    - 提示可包含「在編輯器中預覽」選項
 
-3. **複製失敗：**
+2. **複製失敗：**
    - 顯示錯誤通知，說明失敗原因
-   - 針對超過大小限制的檔案，提供部分複製或分批複製選項
-
-**鍵盤快捷鍵：**
-
-* **選取/取消選取檔案：** Space
-* **展開/摺疊資料夾：** Enter 或右箭頭/左箭頭
-
-**注意：** 複製整個檔案時，不需要顯示行數，直接以檔案名稱作為標題。
