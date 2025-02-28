@@ -119,6 +119,9 @@ function activate(context) {
 5. **copyForAI.customFormatAfter** (預設: "===== CODE CONTEXT END =====")
    - 自定義格式的結束標記
 
+6. **copyForAI.includeComments** (預設: true)
+   - 是否包含程式碼中的註解
+
 ## 安裝
 
 從 VSCode 擴展市集安裝：

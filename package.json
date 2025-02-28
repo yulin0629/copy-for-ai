@@ -1,8 +1,8 @@
 {
   "name": "copy-for-ai",
   "displayName": "Copy For AI",
-  "description": "複製程式碼為 AI 友善的 Markdown 格式",
-  "version": "0.0.2",
+  "description": "複製程式碼為 AI 友善的 Markdown, XML, JSON 格式",
+  "version": "0.0.3",
   "repository": {
     "type": "git",
     "url": "https://github.com/yulin0629/Copy-For-AI.git"
@@ -81,7 +81,12 @@
         },
         "copyForAI.outputFormat": {
           "type": "string",
-          "enum": ["markdown", "xml", "json", "custom"],
+          "enum": [
+            "markdown",
+            "xml",
+            "json",
+            "custom"
+          ],
           "default": "markdown",
           "description": "上下文資訊的輸出格式"
         },
@@ -94,6 +99,11 @@
           "type": "string",
           "default": "===== CODE CONTEXT END =====",
           "description": "自訂格式的結束標記"
+        },
+        "copyForAI.includeComments": {
+          "type": "boolean",
+          "default": true,
+          "description": "是否包含程式碼中的註解"
         }
       }
     }
@@ -113,16 +123,19 @@
     "test": "vscode-test"
   },
   "devDependencies": {
-    "@types/vscode": "^1.74.0",
     "@types/mocha": "^10.0.10",
     "@types/node": "20.x",
+    "@types/vscode": "^1.74.0",
     "@typescript-eslint/eslint-plugin": "^8.22.0",
     "@typescript-eslint/parser": "^8.22.0",
-    "eslint": "^9.19.0",
-    "esbuild": "^0.24.2",
-    "npm-run-all": "^4.1.5",
-    "typescript": "^5.7.3",
     "@vscode/test-cli": "^0.0.10",
-    "@vscode/test-electron": "^2.4.1"
+    "@vscode/test-electron": "^2.4.1",
+    "esbuild": "^0.24.2",
+    "eslint": "^9.19.0",
+    "npm-run-all": "^4.1.5",
+    "typescript": "^5.7.3"
+  },
+  "dependencies": {
+    "strip-comments": "^2.0.1"
   }
 }

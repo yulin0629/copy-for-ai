@@ -57,10 +57,8 @@ function formatAsMarkdown(options: FormatOptions): string {
     }
     
     // 增強版本（帶有結構資訊）
-    let markdown = `# CODE CONTEXT\n-----------------\n\n`;
-    
-    // 文件資訊
-    markdown += `## File\n${options.filePath} (${options.startLine}-${options.endLine})\n\n`;
+    let markdown = `## FILE: ${options.filePath} (${options.startLine}-${options.endLine})\n`;
+    markdown += `\`\`\`\`markdown\n`;
     
     // 結構資訊
     if (options.structure) {
@@ -73,9 +71,9 @@ function formatAsMarkdown(options: FormatOptions): string {
     }
     
     // 程式碼
-    markdown += `## Code\n\`\`\`${options.languageId}\n${options.code}\n\`\`\`\n\n`;
+    markdown += `## Code\n\`\`\`${options.languageId}\n${options.code}\n\`\`\`\n`;
     
-    markdown += `-----------------\n`;
+    markdown += `\`\`\`\``;
     
     return markdown;
 }

@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { getLanguageKeywords } from './languageSupport';
+import strip from 'strip-comments';
 
 /**
  * 程式碼處理選項
@@ -7,6 +8,20 @@ import { getLanguageKeywords } from './languageSupport';
 export interface CodeProcessingOptions {
     includeStructure: boolean;
     includeImports: boolean;
+    includeComments: boolean;
+}
+
+/**
+ * 移除程式碼中的註解
+ * @param code 原始程式碼
+ * @param languageId 語言 ID
+ * @returns 去除註解後的程式碼
+ */
+export function removeComments(code: string): string {
+    // 使用 strip-comments 套件移除註解
+    return strip(code, {
+        preserveNewlines: false
+    });
 }
 
 /**
@@ -20,8 +35,11 @@ export async function processCode(
     document: vscode.TextDocument,
     selection: vscode.Selection,
     options: CodeProcessingOptions
-): Promise<{ structure?: string; imports?: string }> {
-    const result: { structure?: string; imports?: string } = {};
+): Promise<{ structure?: string; imports?: string; code: string }> {
+    const selectedCode = document.getText(selection);
+    const result: { structure?: string; imports?: string; code: string } = {
+        code: options.includeComments ? selectedCode : removeComments(selectedCode)
+    };
     
     // 獲取結構資訊
     if (options.includeStructure) {
@@ -30,8 +48,8 @@ export async function processCode(
     
     // 獲取相關的引用/匯入
     if (options.includeImports) {
-        const selectedCode = document.getText(selection);
-        result.imports = await findRelevantImports(document, selectedCode);
+        // 注意使用處理過的程式碼來尋找引用
+        result.imports = await findRelevantImports(document, result.code);
     }
     
     return result;

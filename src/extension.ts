@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { processCode } from './codeAnalyzer';
+import { processCode, removeComments } from './codeAnalyzer';
 import { formatOutput } from './formatter';
 
 /**
@@ -83,8 +83,13 @@ async function doCopy(
         outputFormat = 'markdown';
         vscode.window.showWarningMessage(`不支援的輸出格式: ${outputFormat}，已改用預設 Markdown 格式`);
     }
+
+    // 檢查是否需要過濾註解
+    const includeComments = config.get<boolean>('includeComments', true);
+    
     // 處理程式碼（包括結構分析等）
-    let extraContext;
+    let extraContext: any = {};
+    let processedCode = text;
     
     if (includeContext) {
         progress?.report({ message: "分析程式碼結構..." });
@@ -92,14 +97,22 @@ async function doCopy(
         const includeStructure = config.get<boolean>('includeStructureInfo', true);
         const includeImports = config.get<boolean>('includeRelatedImports', true);
         
-        extraContext = await processCode(document, selection, {
+        const result = await processCode(document, selection, {
             includeStructure,
-            includeImports
+            includeImports,
+            includeComments
         });
+        
+        extraContext.structure = result.structure;
+        extraContext.imports = result.imports;
+        processedCode = result.code;
+    } else if (!includeComments) {
+        // 僅移除註解但不需要上下文分析
+        processedCode = removeComments(text);
     }
     
     // 處理程式碼縮排
-    const processedCode = normalizeIndentation(text);
+    processedCode = normalizeIndentation(processedCode);
     
     // 格式化輸出
     const formattedOutput = formatOutput({

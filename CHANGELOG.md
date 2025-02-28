@@ -4,6 +4,13 @@ All notable changes to the "copy-for-ai" extension will be documented in this fi
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## [0.0.3] - 2024-02-28
+
+### 新增
+- 新增是否包含註解的設定選項
+- 增強註解移除功能，支援更多程式語言
+- 改進程式碼格式化，保持更好的可讀性
+
 ## [0.0.2] - 未發布
 
 ### 新增
