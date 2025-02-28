@@ -72,11 +72,25 @@
     function initialize() {
         setupEventListeners();
         
-        // 恢復之前的狀態
+        // 恢復之前的狀態，但不包括篩選狀態
         const previousState = vscode.getState();
         if (previousState) {
-            Object.assign(state, previousState);
+            // 只恢復選取和展開狀態，不恢復篩選狀態
+            if (previousState.selectionState) {
+                state.selectionState = previousState.selectionState;
+            }
+            if (previousState.expandedFolders) {
+                state.expandedFolders = previousState.expandedFolders;
+            }
+            // 不恢復篩選和僅顯示已選取狀態
+            state.filter = '';
+            state.showSelectedOnly = false;
         }
+        
+        // 清空篩選框，以防在 HTML 中有預設值
+        filterInput.value = '';
+        showSelectedOnlyCheckbox.checked = false;
+        updateClearButtonVisibility();
         
         // 請求檔案列表
         vscode.postMessage({ command: 'getFiles' });
@@ -237,9 +251,14 @@
             for (const item of items) {
                 const fullPath = parentPath ? `${parentPath} › ${item.name}` : item.name;
                 
-                if (passesFilter(item)) {
+                // 檢查項目本身是否符合篩選條件
+                const itemMatchesFilter = item.name.toLowerCase().includes(state.filter) || 
+                                         item.path.toLowerCase().includes(state.filter);
+                
+                // 只有文件類型才加入結果，避免資料夾單獨出現在結果中
+                if (itemMatchesFilter && item.type === 'file') {
                     // 如果僅顯示已選取，檢查選取狀態
-                    if (!state.showSelectedOnly || isItemOrChildrenSelected(item)) {
+                    if (!state.showSelectedOnly || state.selectionState[item.path]) {
                         matchingItems.push({
                             item: item,
                             displayPath: fullPath
@@ -247,8 +266,9 @@
                     }
                 }
                 
-                // 繼續搜尋子項目
+                // 檢查資料夾內部是否有符合的文件
                 if ((item.type === 'folder' || item.type === 'root') && item.children) {
+                    // 繼續搜尋子項目
                     findMatchingItems(item.children, fullPath);
                 }
             }
@@ -318,7 +338,8 @@
             tokensElement.className = 'file-tokens';
             
             if (state.tokenLimit > 0) {
-                const percentage = Math.min(100, Math.round((item.estimatedTokens / state.tokenLimit) * 100));
+                // 同樣移除百分比上限
+                const percentage = Math.round((item.estimatedTokens / state.tokenLimit) * 100);
                 tokensElement.textContent = `${item.estimatedTokens} (${percentage}%)`;
             } else {
                 tokensElement.textContent = item.estimatedTokens;
@@ -401,7 +422,8 @@
             tokensElement.className = 'file-tokens';
             
             if (state.tokenLimit > 0) {
-                const percentage = Math.min(100, Math.round((item.estimatedTokens / state.tokenLimit) * 100));
+                // 移除 Math.min(100, ...) 限制，允許超過 100%
+                const percentage = Math.round((item.estimatedTokens / state.tokenLimit) * 100);
                 tokensElement.textContent = `${item.estimatedTokens} (${percentage}%)`;
             } else {
                 tokensElement.textContent = item.estimatedTokens;
@@ -581,8 +603,13 @@
         // 更新進度條
         if (state.tokenLimit > 0) {
             progressContainer.style.display = 'flex';
-            const percentage = Math.min(100, Math.round((totalTokens / state.tokenLimit) * 100));
-            progressBar.style.width = `${percentage}%`;
+            // 移除百分比上限
+            const percentage = Math.round((totalTokens / state.tokenLimit) * 100);
+            
+            // 設置進度條寬度，保持最大 100% 的視覺限制
+            progressBar.style.width = `${Math.min(100, percentage)}%`;
+            
+            // 顯示真實百分比文字，即使超過 100%
             progressPercentage.textContent = `${percentage}%`;
             progressContainer.title = `${totalTokens} / ${state.tokenLimit} tokens (${percentage}%)`;
         } else {
@@ -595,12 +622,11 @@
     
     // 保存狀態
     function saveState() {
-        // 保存到 VSCode 視圖狀態
+        // 保存到 VSCode 視圖狀態，不再包含篩選狀態
         vscode.setState({
             selectionState: state.selectionState,
-            expandedFolders: state.expandedFolders,
-            filter: state.filter,
-            showSelectedOnly: state.showSelectedOnly
+            expandedFolders: state.expandedFolders
+            // 不保存 filter 和 showSelectedOnly
         });
         
         // 同時保存到擴展持久化存儲

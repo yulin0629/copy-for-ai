@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { processCode, removeComments } from './codeAnalyzer';
 import { formatOutput } from './formatter';
 import { ContextExplorerProvider } from './contextExplorer/contextExplorerProvider';
+import { ExclusionSettingsPanel } from './contextExplorer/exclusionSettingsPanel';
 
 /**
  * 當擴展被啟動時執行
@@ -20,9 +21,15 @@ export function activate(context: vscode.ExtensionContext) {
         await copyForAI(true);
     });
 
-    // 註冊設定排除模式命令
+    // 註冊設定排除模式命令 - 現在開啟排除規則設定面板
     const configureCommand = vscode.commands.registerCommand('copy-for-ai.configureExcludePatterns', () => {
-        vscode.commands.executeCommand('workbench.action.openSettings', 'copyForAI.contextExplorer.excludePatterns');
+        ExclusionSettingsPanel.createOrShow(context.extensionUri, context);
+    });
+    
+    // 註冊刷新檔案瀏覽器命令
+    const refreshCommand = vscode.commands.registerCommand('copy-for-ai.refreshFileExplorer', () => {
+        // 通知 ContextExplorerProvider 刷新檔案列表
+        vscode.commands.executeCommand('copy-for-ai.contextExplorer.refresh');
     });
 
     // 註冊 Context Explorer 視圖
@@ -31,13 +38,59 @@ export function activate(context: vscode.ExtensionContext) {
         ContextExplorerProvider.viewType,
         contextExplorerProvider
     );
+    
+    // 在 ContextExplorerProvider 中處理刷新命令
+    context.subscriptions.push(
+        vscode.commands.registerCommand('copy-for-ai.contextExplorer.refresh', () => {
+            // 這裡我們可以呼叫 contextExplorerProvider 的方法來刷新檔案列表
+            // 但須修改 ContextExplorerProvider 類添加 refreshFiles 方法
+            contextExplorerProvider.refreshFiles(); // 確保 ContextExplorerProvider 有此方法
+        })
+    );
 
     context.subscriptions.push(
         basicCopyCommand, 
         contextCopyCommand, 
         configureCommand,
+        refreshCommand,
         contextExplorerView
     );
+    
+    // 註冊檔案關聯擴展
+    registerFileAssociations();
+}
+
+/**
+ * 註冊檔案關聯擴展
+ * 確保 .mjs 和 .cjs 等檔案類型能正確識別
+ */
+function registerFileAssociations() {
+    // 設定 .mjs 檔案為 JavaScript
+    vscode.languages.setLanguageConfiguration('javascript', {
+        wordPattern: /(-?\d*\.\d\w*)|([^\`\~\!\@\#\%\^\&\*\(\)\-\=\+\[\{\]\}\\\|\;\:\'\"\,\.\<\>\/\?\s]+)/g
+    });
+    
+    // 確保 .mjs 和 .cjs 檔案被識別為 JavaScript
+    const jsConfig = vscode.workspace.getConfiguration('files');
+    const associations = jsConfig.get<{[key: string]: string}>('associations', {});
+    
+    // 檢查是否已經有相關關聯
+    let hasChanged = false;
+    
+    if (!associations['*.mjs']) {
+        associations['*.mjs'] = 'javascript';
+        hasChanged = true;
+    }
+    
+    if (!associations['*.cjs']) {
+        associations['*.cjs'] = 'javascript';
+        hasChanged = true;
+    }
+    
+    // 如果有變更，更新設定
+    if (hasChanged) {
+        jsConfig.update('associations', associations, vscode.ConfigurationTarget.Global);
+    }
 }
 
 /**

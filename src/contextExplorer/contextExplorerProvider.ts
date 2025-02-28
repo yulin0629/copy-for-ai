@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
 import { formatOutput } from '../formatter';
-import * as gitignore from 'ignore'; // 需添加此依賴
+import * as ignore from 'ignore'; // 導入 ignore 套件
 
 /**
  * 表示檔案樹中的節點（檔案或資料夾）
@@ -37,6 +37,15 @@ export class ContextExplorerProvider implements vscode.WebviewViewProvider {
         this._outputChannel = vscode.window.createOutputChannel('Copy For AI');
         this._setupFileWatcher();
         this._log('Context Explorer 已初始化');
+    }
+
+    /**
+     * 公開方法：刷新檔案列表
+     * 用於外部組件調用，例如從命令中觸發
+     */
+    public refreshFiles(): Promise<void> {
+        this._log('從外部命令觸發檔案列表刷新');
+        return this._refreshFiles();
     }
 
     /**
@@ -286,8 +295,8 @@ export class ContextExplorerProvider implements vscode.WebviewViewProvider {
                 break;
                 
             case 'openSettings':
-                // 開啟設定編輯器
-                vscode.commands.executeCommand('workbench.action.openSettings', 'copyForAI.contextExplorer.excludePatterns');
+                // 修改為開啟所有擴展設定，而不只是 excludePatterns
+                vscode.commands.executeCommand('workbench.action.openSettings', 'copyForAI');
                 break;
             
             default:
@@ -322,29 +331,53 @@ export class ContextExplorerProvider implements vscode.WebviewViewProvider {
     }
 
     /**
-     * 讀取 .gitignore 檔案
+     * 載入 .gitignore 過濾器
      */
-    private async _loadGitIgnore(): Promise<string[]> {
-        const workspaceFolders = vscode.workspace.workspaceFolders;
-        if (!workspaceFolders) {
-            return [];
-        }
-
+    private async _loadGitignoreFilter(workspacePath: string): Promise<ignore.Ignore | null> {
         try {
-            const gitignorePath = path.join(workspaceFolders[0].uri.fsPath, '.gitignore');
+            const gitignorePath = path.join(workspacePath, '.gitignore');
             
             if (fs.existsSync(gitignorePath)) {
                 const content = fs.readFileSync(gitignorePath, 'utf8');
-                return content
+                const ignoreFilter = ignore.default();
+                
+                content
                     .split('\n')
                     .map(line => line.trim())
-                    .filter(line => line && !line.startsWith('#'));
+                    .filter(line => line && !line.startsWith('#'))
+                    .forEach(pattern => ignoreFilter.add(pattern));
+                
+                this._log(`已載入 .gitignore 過濾器，包含 ${content.split('\n').filter(line => line.trim() && !line.trim().startsWith('#')).length} 個規則`);
+                return ignoreFilter;
             }
         } catch (error) {
-            this._logError('讀取 .gitignore 失敗', error);
+            this._logError('載入 .gitignore 過濾器失敗', error);
         }
         
-        return [];
+        return null;
+    }
+
+    /**
+     * 根據 .gitignore 過濾檔案
+     */
+    private _filterFilesByGitignore(
+        files: vscode.Uri[], 
+        workspacePath: string, 
+        ignoreFilter: ignore.Ignore | null
+    ): vscode.Uri[] {
+        if (!ignoreFilter) {
+            return files;
+        }
+        
+        return files.filter(file => {
+            // 獲取相對於工作區的路徑
+            const relativePath = path.relative(workspacePath, file.fsPath).replace(/\\/g, '/');
+            
+            // 檢查是否應該被忽略
+            const shouldIgnore = ignoreFilter.ignores(relativePath);
+            
+            return !shouldIgnore;
+        });
     }
 
     /**
@@ -361,20 +394,33 @@ export class ContextExplorerProvider implements vscode.WebviewViewProvider {
         const config = vscode.workspace.getConfiguration('copyForAI');
         const excludePatterns = config.get<string[]>('contextExplorer.excludePatterns', 
             ['**/node_modules/**', '**/.git/**', '**/dist/**', '**/build/**', '**/bin/**']);
+        const followGitignore = config.get<boolean>('contextExplorer.followGitignore', true);
         
-        // 載入 .gitignore 檔案
-        const gitignorePatterns = await this._loadGitIgnore();
-        this._log(`.gitignore 包含 ${gitignorePatterns.length} 個規則`);
+        const workspacePath = workspaceFolders[0].uri.fsPath;
         
-        // 組合排除模式
-        const allExcludePatterns = [...excludePatterns, ...gitignorePatterns.map(p => `**/${p}`)];
-        const excludePattern = `{${allExcludePatterns.join(',')}}`;
+        // 載入 .gitignore 過濾器 (如果啟用了該選項)
+        let ignoreFilter: ignore.Ignore | null = null;
+        if (followGitignore) {
+            ignoreFilter = await this._loadGitignoreFilter(workspacePath);
+        }
+        
+        // 組合排除模式 (用於 vscode.workspace.findFiles)
+        const allExcludePatterns = [...excludePatterns];
+        
+        const excludePattern = allExcludePatterns.length > 0 ? `{${allExcludePatterns.join(',')}}` : '';
         
         try {
             // 獲取所有檔案
             const pattern = new vscode.RelativePattern(workspaceFolders[0], '**/*');
-            const files = await vscode.workspace.findFiles(pattern, excludePattern);
-            this._log(`找到 ${files.length} 個檔案（排除模式: ${excludePattern}）`);
+            let files = await vscode.workspace.findFiles(pattern, excludePattern || undefined);
+            this._log(`找到 ${files.length} 個檔案（排除模式: ${excludePattern || '無'}）`);
+            
+            // 使用 .gitignore 過濾檔案 (如果啟用了該選項)
+            if (followGitignore && ignoreFilter) {
+                const beforeCount = files.length;
+                files = this._filterFilesByGitignore(files, workspacePath, ignoreFilter);
+                this._log(`應用 .gitignore 過濾後剩餘 ${files.length} 個檔案 (排除了 ${beforeCount - files.length} 個檔案)`);
+            }
             
             // 過濾二進制檔案和其他非文字檔案
             const textFiles = files.filter(file => this._isTextFile(file.fsPath));
@@ -736,6 +782,8 @@ export class ContextExplorerProvider implements vscode.WebviewViewProvider {
         // 檔案副檔名對應到語言 ID
         const extensionMap: Record<string, string> = {
             '.js': 'javascript',
+            '.mjs': 'javascript', // 新增支援 .mjs 檔案
+            '.cjs': 'javascript', // 新增支援 .cjs 檔案
             '.ts': 'typescript',
             '.jsx': 'javascriptreact',
             '.tsx': 'typescriptreact',

@@ -155,12 +155,20 @@
             "**/build/**",
             "**/bin/**"
           ],
-          "description": "檔案瀏覽器中要排除的檔案模式。支援 glob 模式，例如 '**/node_modules/**' 表示排除所有 node_modules 資料夾及其內容。此設定會與 .gitignore 檔案中的模式合併使用。"
+          "description": "檔案瀏覽器中要排除的檔案模式。支援 glob 模式，例如 '**/node_modules/**' 表示排除所有 node_modules 資料夾及其內容。",
+          "scope": "resource"
         },
         "copyForAI.contextExplorer.followGitignore": {
           "type": "boolean",
           "default": true,
-          "description": "是否遵循 .gitignore 檔案中定義的排除規則"
+          "description": "是否遵循 .gitignore 檔案中定義的排除規則",
+          "scope": "resource"
+        },
+        "copyForAI.contextExplorer.showExcludeHints": {
+          "type": "boolean",
+          "default": true,
+          "description": "在檔案瀏覽器中顯示關於排除規則的提示",
+          "scope": "resource"
         }
       }
     }
@@ -195,7 +203,7 @@
     "typescript": "^5.7.3"
   },
   "dependencies": {
-    "strip-comments": "^2.0.1",
-    "ignore": "^5.3.0"
+    "ignore": "^5.3.2",
+    "strip-comments": "^2.0.1"
   }
 }
