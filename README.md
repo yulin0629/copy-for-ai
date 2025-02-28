@@ -196,22 +196,6 @@ vsce package
 ```
 這將在專案根目錄生成一個 `copy-for-ai-0.0.1.vsix` 檔案（版本號可能不同）。
 
-### 發佈到 VSCode 市集
-
-1. 在 [Azure DevOps](https://dev.azure.com/) 創建帳號
-2. 創建一個組織和 Personal Access Token (PAT)
-3. 使用以下命令發佈：
-
-```bash
-# 登入
-vsce login <發布者名稱>
-
-# 發佈
-vsce publish
-```
-
-詳細的發佈指南請參考 [VSCode 官方文件](https://code.visualstudio.com/api/working-with-extensions/publishing-extension)。
-
 ## 授權
 
 MIT
