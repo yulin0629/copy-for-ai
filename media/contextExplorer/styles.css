@@ -1,0 +1,399 @@
+/* Context Explorer WebView 樣式 */
+
+:root {
+    --background-color: var(--vscode-editor-background);
+    --foreground-color: var(--vscode-foreground);
+    --border-color: var(--vscode-panel-border);
+    --separator-color: var(--vscode-settings-dropdownListBorder);
+    --hover-color: var(--vscode-list-hoverBackground);
+    --active-color: var(--vscode-list-activeSelectionBackground);
+    --active-foreground: var(--vscode-list-activeSelectionForeground);
+    --button-background: var(--vscode-button-background);
+    --button-foreground: var(--vscode-button-foreground);
+    --button-hover-background: var(--vscode-button-hoverBackground);
+    --input-background: var(--vscode-input-background);
+    --input-foreground: var(--vscode-input-foreground);
+    --input-border: var(--vscode-input-border);
+    --progress-bar-background: var(--vscode-progressBar-background);
+    --error-foreground: var(--vscode-errorForeground, #f44336);
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body, html {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    width: 100%;
+    font-family: var(--vscode-font-family);
+    font-size: var(--vscode-font-size);
+    color: var(--foreground-color);
+    background-color: var(--background-color);
+    overflow: hidden;
+}
+
+.container {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    width: 100%;
+    overflow: hidden;
+}
+
+/* 標題列 */
+.header {
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--separator-color);
+    flex-shrink: 0;
+}
+
+.header h1 {
+    margin: 0;
+    font-size: 14px;
+    font-weight: normal;
+}
+
+/* 篩選框 */
+.filter-box {
+    padding: 8px 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    border-bottom: 1px solid var(--separator-color);
+    flex-shrink: 0;
+}
+
+.search-container {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.search-icon {
+    position: absolute;
+    left: 6px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 12px;
+    color: var(--vscode-descriptionForeground);
+}
+
+#filter-input {
+    width: 100%;
+    padding: 4px 25px 4px 24px;
+    border: 1px solid var(--input-border);
+    background-color: var(--input-background);
+    color: var(--input-foreground);
+    outline: none;
+}
+
+#filter-input:focus {
+    border-color: var(--vscode-focusBorder);
+}
+
+.clear-button {
+    position: absolute;
+    right: 6px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: transparent;
+    border: none;
+    color: var(--vscode-descriptionForeground);
+    cursor: pointer;
+    font-size: 12px;
+    padding: 0;
+    margin: 0;
+    line-height: 1;
+}
+
+.clear-button:hover {
+    color: var(--foreground-color);
+}
+
+.show-selected-container {
+    display: flex;
+    align-items: center;
+    font-size: 12px;
+}
+
+.show-selected-container input {
+    margin-right: 6px;
+}
+
+/* 檔案列表 */
+.file-list-container {
+    flex: 1;
+    overflow: auto;
+    padding: 0;
+}
+
+.file-list {
+    width: 100%;
+}
+
+.file-item {
+    padding: 4px 10px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    min-height: 22px;
+    position: relative;
+}
+
+.file-item:hover {
+    background-color: var(--hover-color);
+}
+
+.file-checkbox {
+    margin-right: 4px;
+}
+
+.expand-icon {
+    width: 16px;
+    height: 16px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 4px;
+    cursor: pointer;
+}
+
+.expanded-icon::before {
+    content: "▼";
+    font-size: 8px;
+}
+
+.collapsed-icon::before {
+    content: "►";
+    font-size: 8px;
+}
+
+.folder-icon, .file-icon {
+    width: 16px;
+    height: 16px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 6px;
+}
+
+.folder-icon::before {
+    content: "📁";
+    font-size: 14px;
+}
+
+.file-icon::before {
+    content: "📄";
+    font-size: 14px;
+}
+
+.file-name {
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.file-tokens {
+    margin-left: 8px;
+    color: var(--vscode-descriptionForeground);
+    font-size: 12px;
+    white-space: nowrap;
+}
+
+/* 底部摘要列 */
+.footer {
+    padding: 8px 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-top: 1px solid var(--separator-color);
+    background-color: var(--background-color);
+    flex-shrink: 0;
+}
+
+.summary {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.summary-text {
+    display: flex;
+    flex-direction: column;
+    font-size: 12px;
+}
+
+.progress-container {
+    margin-top: 4px;
+    height: 4px;
+    width: 120px;
+    background-color: var(--input-background);
+    border: none;
+    border-radius: 2px;
+    overflow: hidden;
+}
+
+.progress-bar {
+    height: 100%;
+    width: 0%;
+    background-color: var(--progress-bar-background);
+    transition: width 0.3s ease;
+}
+
+.copy-button {
+    padding: 4px 10px;
+    background-color: var(--button-background);
+    color: var(--button-foreground);
+    border: none;
+    border-radius: 2px;
+    cursor: pointer;
+    font-size: 13px;
+}
+
+.copy-button:hover:not(:disabled) {
+    background-color: var(--button-hover-background);
+}
+
+.copy-button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* 複選框樣式 */
+.file-checkbox {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 16px;
+    height: 16px;
+    border: 1px solid var(--input-border);
+    background-color: var(--input-background);
+    border-radius: 3px;
+    position: relative;
+    cursor: pointer;
+    margin: 0 6px 0 0;
+}
+
+.file-checkbox:checked {
+    background-color: var(--button-background);
+    border-color: var(--button-background);
+}
+
+.file-checkbox:checked::after {
+    content: "";
+    position: absolute;
+    left: 4px;
+    top: 1px;
+    width: 5px;
+    height: 10px;
+    border: solid white;
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
+}
+
+.file-checkbox:indeterminate {
+    background-color: var(--button-background);
+    border-color: var(--button-background);
+}
+
+.file-checkbox:indeterminate::after {
+    content: "";
+    position: absolute;
+    left: 3px;
+    top: 6px;
+    width: 8px;
+    height: 2px;
+    background-color: white;
+}
+
+/* 訊息提示 */
+.message {
+    position: fixed;
+    top: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 8px 16px;
+    background-color: var(--vscode-notificationToast-background, #333);
+    color: var(--vscode-notificationToast-foreground, #fff);
+    border: 1px solid var(--vscode-notificationToast-border, #444);
+    border-radius: 4px;
+    z-index: 1000;
+    max-width: 80%;
+    text-align: center;
+    animation: fadeIn 0.3s ease;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.message.error {
+    background-color: var(--error-foreground);
+    color: white;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translate(-50%, -20px); }
+    to { opacity: 1; transform: translate(-50%, 0); }
+}
+
+/* 適配深色/淺色主題 */
+@media (prefers-color-scheme: dark) {
+    .folder-icon::before {
+        content: "📁";
+    }
+    .file-icon::before {
+        content: "📄";
+    }
+}
+
+@media (prefers-color-scheme: light) {
+    .folder-icon::before {
+        content: "📁";
+    }
+    .file-icon::before {
+        content: "📄";
+    }
+}
+
+/* 無檔案提示 */
+.empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: var(--vscode-descriptionForeground);
+    text-align: center;
+    padding: 20px;
+}
+
+.empty-state-icon {
+    font-size: 36px;
+    margin-bottom: 12px;
+}
+
+.empty-state-message {
+    font-size: 14px;
+    max-width: 300px;
+    line-height: 1.5;
+}
+
+/* 除錯資訊區域 */
+.debug-info {
+    padding: 8px;
+    margin-top: 8px;
+    background-color: rgba(0, 0, 0, 0.1);
+    border-radius: 4px;
+    font-family: monospace;
+    font-size: 12px;
+    overflow: auto;
+    max-height: 200px;
+    white-space: pre-wrap;
+    word-break: break-all;
+    display: none; /* 預設隱藏 */
+}
+
+/* 當除錯模式啟用時顯示 */
+.debug-mode .debug-info {
+    display: block;
+}

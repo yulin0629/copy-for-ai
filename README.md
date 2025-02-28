@@ -4,15 +4,15 @@
 
 ## 功能特點
 
-這個擴展提供了兩種複製模式，讓你能夠根據需求選擇適合的方式：
+這個擴展提供了三種主要功能，讓你能夠根據需求選擇適合的方式：
 
-### 基本複製功能
+### 1. 基本複製功能
 
 1. **保持相對縮排** - 移除共同的前導空格，讓程式碼整齊對齊
 2. **轉換為 Markdown 格式** - 自動添加語法高亮標記
 3. **包含文件路徑與行號** - 提供程式碼的基本上下文
 
-### 增強複製功能 (含上下文)
+### 2. 增強複製功能 (含上下文)
 
 除了基本功能外，還提供：
 
@@ -20,6 +20,71 @@
 2. **相關引用/匯入識別** - 智能尋找與選取程式碼相關的引用語句
 3. **多種輸出格式** - 支援 Markdown、XML、JSON 和自定義格式
 4. **多語言支援** - 支援大多數主流程式語言
+
+### 3. 檔案瀏覽器 (Context Explorer)
+
+全新功能讓你可以輕鬆選取並複製多個檔案：
+
+1. **多檔案選取** - 使用檔案瀏覽器介面勾選多個檔案
+2. **資料夾批次選取** - 勾選資料夾自動選取所有子檔案
+3. **檔案搜尋篩選** - 快速篩選顯示需要的檔案
+4. **Tokens 預估** - 顯示選取檔案的預估 tokens 數量和百分比
+5. **狀態持久化** - 記住您的選取和展開狀態
+
+## 使用方法
+
+你可以通過以下方式使用此功能：
+
+### 1. 基本複製 (無上下文)
+
+**右鍵選單：**
+- 在編輯器中選取程式碼
+- 右鍵點擊選取的文字
+- 選擇「Copy For AI」選項
+
+**鍵盤快捷鍵：**
+- 在編輯器中選取程式碼
+- 按下 `Ctrl+Alt+C`（Windows/Linux）或 `Cmd+Alt+C`（Mac）
+
+**命令面板：**
+- 在編輯器中選取程式碼
+- 按下 `Ctrl+Shift+P` 或 `Cmd+Shift+P` 開啟命令面板
+- 輸入「Copy For AI」並選擇該命令
+
+### 2. 增強複製 (含上下文)
+
+**右鍵選單：**
+- 在編輯器中選取程式碼
+- 右鍵點擊選取的文字
+- 選擇「Copy For AI (With Context)」選項
+
+**鍵盤快捷鍵：**
+- 在編輯器中選取程式碼
+- 按下 `Ctrl+Alt+Shift+C`（Windows/Linux）或 `Cmd+Alt+Shift+C`（Mac）
+
+**命令面板：**
+- 在編輯器中選取程式碼
+- 按下 `Ctrl+Shift+P` 或 `Cmd+Shift+P` 開啟命令面板
+- 輸入「Copy For AI (With Context)」並選擇該命令
+
+### 3. 使用檔案瀏覽器 (Context Explorer)
+
+**開啟檔案瀏覽器：**
+- 點擊左側活動欄中的「Copy For AI」圖示，開啟檔案瀏覽器側邊欄
+
+**選取檔案：**
+- 勾選想要複製的檔案或資料夾
+- 勾選資料夾將自動選取所有子檔案
+
+**篩選檔案：**
+- 在頂部搜尋框中輸入關鍵字快速篩選檔案
+- 勾選「僅顯示已選取」來專注於已選取的檔案
+
+**複製檔案：**
+- 點擊底部的「複製到剪貼簿」按鈕
+- 所有選取的檔案內容將按照設定的格式複製到剪貼簿
+
+接著將複製的內容貼到 ChatGPT、Claude 或其他 AI 工具中，即可保持程式碼的格式和上下文。
 
 ## 輸出格式範例
 
@@ -61,43 +126,34 @@ function activate(context) {
 -----------------
 ````
 
-## 使用方法
+### 檔案瀏覽器複製格式
 
-你可以通過以下方式使用此功能：
+````markdown
+## File: src/extension.ts
+```typescript
+import * as vscode from 'vscode';
+import { processCode, removeComments } from './codeAnalyzer';
+import { formatOutput } from './formatter';
 
-### 1. 基本複製 (無上下文)
+export function activate(context: vscode.ExtensionContext) {
+    console.log('擴展 "copy-for-ai" 已啟動！');
+}
+```
 
-**右鍵選單：**
-- 在編輯器中選取程式碼
-- 右鍵點擊選取的文字
-- 選擇「Copy For AI」選項
-
-**鍵盤快捷鍵：**
-- 在編輯器中選取程式碼
-- 按下 `Ctrl+Alt+C`（Windows/Linux）或 `Cmd+Alt+C`（Mac）
-
-**命令面板：**
-- 在編輯器中選取程式碼
-- 按下 `Ctrl+Shift+P` 或 `Cmd+Shift+P` 開啟命令面板
-- 輸入「Copy For AI」並選擇該命令
-
-### 2. 增強複製 (含上下文)
-
-**右鍵選單：**
-- 在編輯器中選取程式碼
-- 右鍵點擊選取的文字
-- 選擇「Copy For AI (With Context)」選項
-
-**鍵盤快捷鍵：**
-- 在編輯器中選取程式碼
-- 按下 `Ctrl+Alt+Shift+C`（Windows/Linux）或 `Cmd+Alt+Shift+C`（Mac）
-
-**命令面板：**
-- 在編輯器中選取程式碼
-- 按下 `Ctrl+Shift+P` 或 `Cmd+Shift+P` 開啟命令面板
-- 輸入「Copy For AI (With Context)」並選擇該命令
-
-接著將複製的內容貼到 ChatGPT、Claude 或其他 AI 工具中，即可保持程式碼的格式和上下文。
+## File: src/formatter.ts
+```typescript
+export function formatOutput(options: FormatOptions): string {
+    switch (options.format) {
+        case OutputFormat.Markdown:
+            return formatAsMarkdown(options);
+        case OutputFormat.XML:
+            return formatAsXML(options);
+        default:
+            return formatAsMarkdown(options);
+    }
+}
+```
+````
 
 ## 設定選項
 
@@ -121,6 +177,12 @@ function activate(context) {
 
 6. **copyForAI.includeComments** (預設: true)
    - 是否包含程式碼中的註解
+
+7. **copyForAI.tokenLimit** (預設: 0)
+   - 預設 token 上限（0 表示無上限）
+
+8. **copyForAI.contextExplorer.excludePatterns** (預設: ["**/node_modules/**", "**/.git/**", "**/dist/**", "**/build/**", "**/bin/**"])
+   - Context Explorer 中排除的檔案模式
 
 ## 安裝
 

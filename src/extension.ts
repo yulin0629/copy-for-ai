@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { processCode, removeComments } from './codeAnalyzer';
 import { formatOutput } from './formatter';
+import { ContextExplorerProvider } from './contextExplorer/contextExplorerProvider';
 
 /**
  * 當擴展被啟動時執行
@@ -19,7 +20,14 @@ export function activate(context: vscode.ExtensionContext) {
         await copyForAI(true);
     });
 
-    context.subscriptions.push(basicCopyCommand, contextCopyCommand);
+    // 註冊 Context Explorer 視圖
+    const contextExplorerProvider = new ContextExplorerProvider(context);
+    const contextExplorerView = vscode.window.registerWebviewViewProvider(
+        ContextExplorerProvider.viewType,
+        contextExplorerProvider
+    );
+
+    context.subscriptions.push(basicCopyCommand, contextCopyCommand, contextExplorerView);
 }
 
 /**

@@ -2,7 +2,7 @@
   "name": "copy-for-ai",
   "displayName": "Copy For AI",
   "description": "複製程式碼為 AI 友善的 Markdown, XML, JSON 格式",
-  "version": "0.0.3",
+  "version": "0.1.0",
   "repository": {
     "type": "git",
     "url": "https://github.com/yulin0629/Copy-For-AI.git"
@@ -16,6 +16,24 @@
   "activationEvents": [],
   "main": "./dist/extension.js",
   "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "copy-for-ai-explorer",
+          "title": "Copy For AI",
+          "icon": "media/icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "copy-for-ai-explorer": [
+        {
+          "id": "copy-for-ai.contextExplorer",
+          "name": "檔案瀏覽器",
+          "type": "webview"
+        }
+      ]
+    },
     "commands": [
       {
         "command": "copy-for-ai.copyForAI",
@@ -104,6 +122,25 @@
           "type": "boolean",
           "default": true,
           "description": "是否包含程式碼中的註解"
+        },
+        "copyForAI.tokenLimit": {
+          "type": "number",
+          "default": 0,
+          "description": "預設 token 上限（0 表示無上限）"
+        },
+        "copyForAI.contextExplorer.excludePatterns": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [
+            "**/node_modules/**",
+            "**/.git/**",
+            "**/dist/**",
+            "**/build/**",
+            "**/bin/**"
+          ],
+          "description": "Context Explorer 中排除的檔案模式"
         }
       }
     }
@@ -125,12 +162,14 @@
   "devDependencies": {
     "@types/mocha": "^10.0.10",
     "@types/node": "20.x",
+    "@types/strip-comments": "^2.0.4",
     "@types/vscode": "^1.74.0",
     "@typescript-eslint/eslint-plugin": "^8.22.0",
     "@typescript-eslint/parser": "^8.22.0",
     "@vscode/test-cli": "^0.0.10",
     "@vscode/test-electron": "^2.4.1",
     "esbuild": "^0.24.2",
+    "esbuild-plugin-copy": "^2.1.1",
     "eslint": "^9.19.0",
     "npm-run-all": "^4.1.5",
     "typescript": "^5.7.3"
