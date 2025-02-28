@@ -10,11 +10,12 @@
    - 使用者可透過勾選 checkbox 選取多個檔案或資料夾
    - 點擊「Copy to Clipboard」按鈕後，自動將所有勾選檔案的內容複製到剪貼簿中
    - 當勾選資料夾時，自動連帶勾選其內所有子檔案；取消勾選資料夾時，也自動取消勾選其內所有子檔案
-   - 勾選與取消時，底部的摘要列應立即反映最新的檔案數量及預估 Tokens 總量
+   - 勾選與取消時，面板底部的摘要列應立即反映最新的檔案數量及預估 Tokens 總量
 
-2. **檔案列表與搜尋篩選功能**
+2. **檔案列表與篩選功能**
    - 檔案列表呈現為可展開與摺疊的樹狀結構，類似 VSCode 原生 Explorer 的互動方式
-   - 提供模糊搜尋功能，使用者輸入關鍵字後，即時過濾檔案列表，僅根據檔案名稱進行搜尋，不需額外排序
+   - 提供模糊篩選功能，使用者輸入關鍵字後，即時過濾檔案列表，僅顯示檔案名稱符合條件的檔案
+   - 篩選功能僅根據檔案名稱進行比對，不需額外排序
    - 提供一個開關，可讓使用者選擇是否只顯示已勾選的檔案
 
 3. **狀態持久化與自動更新**
@@ -29,11 +30,11 @@
    - 複製大型檔案時顯示進度指示器
    - 選擇性載入檔案內容：僅在需要複製時才讀取檔案內容，而非全部預載入
 
-2. **搜尋性能優化**
-   - 實作搜尋節流（debounce，約 300ms），減少頻繁輸入時的性能問題
-   - 使用效率高的模糊搜尋演算法，支援大型專案搜尋
-   - 僅在檔案名稱上執行搜尋，不搜尋檔案內容
-   - 考慮增量搜尋策略，先顯示部分結果，再逐步完成整個搜尋過程
+2. **篩選性能優化**
+   - 實作篩選節流（debounce，約 300ms），減少頻繁輸入時的性能問題
+   - 使用效率高的模糊比對演算法，支援大型專案篩選
+   - 僅在檔案名稱上執行篩選，不篩選檔案內容
+   - 考慮增量篩選策略，先顯示部分結果，再逐步完成整個篩選過程
 
 3. **檔案系統限制**
    - 預設排除特定類型的檔案或資料夾（如 node_modules、.git、build、dist、bin 等）
@@ -57,31 +58,10 @@
 1. **輸出格式**
    - 使用與現有 Copy For AI 功能相同的基本格式（簡單格式，無上下文分析）
    - 應用現有的 copyForAI.outputFormat 設定（markdown、xml、json、custom）
+   - 複製整個檔案時不顯示行數，直接以檔案名稱作為標題
    - 不添加 Copy For AI (With Context) 的進階功能
 
 2. **交互方式**
    - 提供固定的側邊欄入口（推薦放置在活動欄）
    - 提供命令面板入口：「Copy For AI: Open Context Explorer」
    - 考慮添加快捷鍵設定選項
-
-## 輸出格式範例
-
-````markdown
-## File: src/extension.ts
-```typescript
-import * as vscode from 'vscode';
-import { processCode, removeComments } from './codeAnalyzer';
-import { formatOutput } from './formatter';
-
-export function activate(context: vscode.ExtensionContext) {
-    console.log('擴展 "copy-for-ai" 已啟動！');
-}
-```
-
-## File: src/file2.ts
-```typescript
-export function activate(context: vscode.ExtensionContext) {
-    console.log('擴展 "copy-for-ai" 已啟動！');
-}
-```
-````
