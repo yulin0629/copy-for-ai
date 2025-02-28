@@ -26,6 +26,11 @@
         "command": "copy-for-ai.copyForAIWithContext",
         "title": "Copy For AI (With Context)",
         "category": "Copy For AI"
+      },
+      {
+        "command": "copy-for-ai.openContextExplorer",
+        "title": "Copy For AI: Open Context Explorer",
+        "category": "Copy For AI"
       }
     ],
     "menus": {
@@ -49,6 +54,9 @@
         {
           "command": "copy-for-ai.copyForAIWithContext",
           "when": "editorHasSelection"
+        },
+        {
+          "command": "copy-for-ai.openContextExplorer"
         }
       ]
     },
@@ -106,6 +114,23 @@
           "description": "是否包含程式碼中的註解"
         }
       }
+    },
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "copyForAI",
+          "title": "Copy For AI",
+          "icon": "resources/context-explorer-icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "copyForAI": [
+        {
+          "id": "contextExplorer",
+          "name": "Context Explorer"
+        }
+      ]
     }
   },
   "scripts": {

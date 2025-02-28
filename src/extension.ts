@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { processCode, removeComments } from './codeAnalyzer';
 import { formatOutput } from './formatter';
+import { ContextExplorerViewProvider } from './contextExplorerViewProvider';
 
 /**
  * 當擴展被啟動時執行
@@ -19,7 +20,18 @@ export function activate(context: vscode.ExtensionContext) {
         await copyForAI(true);
     });
 
-    context.subscriptions.push(basicCopyCommand, contextCopyCommand);
+    // 註冊 Context Explorer 命令
+    const openContextExplorerCommand = vscode.commands.registerCommand('copy-for-ai.openContextExplorer', () => {
+        openContextExplorer(context);
+    });
+
+    context.subscriptions.push(basicCopyCommand, contextCopyCommand, openContextExplorerCommand);
+
+    // 註冊 Context Explorer 視圖提供者
+    const contextExplorerProvider = new ContextExplorerViewProvider(context);
+    context.subscriptions.push(
+        vscode.window.registerWebviewViewProvider(ContextExplorerViewProvider.viewType, contextExplorerProvider)
+    );
 }
 
 /**
@@ -174,6 +186,48 @@ function normalizeIndentation(code: string): string {
     });
     
     return processedLines.join('\n');
+}
+
+/**
+ * 開啟 Context Explorer 面板
+ * @param context 擴展上下文
+ */
+function openContextExplorer(context: vscode.ExtensionContext) {
+    const panel = vscode.window.createWebviewPanel(
+        'contextExplorer',
+        'Copy for AI - Context Explorer',
+        vscode.ViewColumn.One,
+        {
+            enableScripts: true,
+            retainContextWhenHidden: true
+        }
+    );
+
+    panel.webview.html = getContextExplorerHtml();
+}
+
+/**
+ * 獲取 Context Explorer 面板的 HTML 內容
+ * @returns HTML 字串
+ */
+function getContextExplorerHtml(): string {
+    return `
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Copy for AI - Context Explorer</title>
+            <style>
+                /* 在這裡添加 CSS 樣式 */
+            </style>
+        </head>
+        <body>
+            <h1>Copy for AI - Context Explorer</h1>
+            <!-- 在這裡添加 HTML 內容 -->
+        </body>
+        </html>
+    `;
 }
 
 /**

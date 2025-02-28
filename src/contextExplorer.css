@@ -1,0 +1,114 @@
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+}
+
+.panel-header {
+    background-color: #007acc;
+    color: white;
+    padding: 10px;
+    text-align: center;
+}
+
+.filter-search-bar {
+    display: flex;
+    align-items: center;
+    padding: 10px;
+    background-color: #f3f3f3;
+    border-bottom: 1px solid #ddd;
+}
+
+.filter-search-bar .project-info {
+    margin-right: 10px;
+    font-weight: bold;
+}
+
+.filter-search-bar input[type="text"] {
+    flex: 1;
+    padding: 5px;
+    border: 1px solid #ccc;
+    border-radius: 3px;
+}
+
+.filter-search-bar button {
+    margin-left: 5px;
+    padding: 5px 10px;
+    border: none;
+    background-color: #007acc;
+    color: white;
+    border-radius: 3px;
+    cursor: pointer;
+}
+
+.toolbar {
+    display: flex;
+    align-items: center;
+    padding: 10px;
+    background-color: #f3f3f3;
+    border-bottom: 1px solid #ddd;
+}
+
+.toolbar button,
+.toolbar select {
+    margin-right: 10px;
+    padding: 5px 10px;
+    border: 1px solid #ccc;
+    border-radius: 3px;
+    cursor: pointer;
+}
+
+.file-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 10px;
+}
+
+.file-list .file-item {
+    display: flex;
+    align-items: center;
+    padding: 5px;
+    border-bottom: 1px solid #ddd;
+}
+
+.file-list .file-item .checkbox {
+    margin-right: 10px;
+}
+
+.file-list .file-item .file-name {
+    flex: 1;
+}
+
+.file-list .file-item .file-size {
+    margin-left: 10px;
+    color: #888;
+}
+
+.footer-summary {
+    display: flex;
+    align-items: center;
+    padding: 10px;
+    background-color: #f3f3f3;
+    border-top: 1px solid #ddd;
+}
+
+.footer-summary span {
+    margin-right: 10px;
+}
+
+.footer-summary progress {
+    flex: 1;
+    margin-right: 10px;
+}
+
+.footer-summary button {
+    padding: 5px 10px;
+    border: none;
+    background-color: #007acc;
+    color: white;
+    border-radius: 3px;
+    cursor: pointer;
+}
