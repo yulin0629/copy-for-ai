@@ -44,11 +44,6 @@
         "command": "copy-for-ai.copyForAIWithContext",
         "title": "Copy For AI (With Context)",
         "category": "Copy For AI"
-      },
-      {
-        "command": "copy-for-ai.configureExcludePatterns",
-        "title": "設定排除模式",
-        "category": "Copy For AI"
       }
     ],
     "menus": {
@@ -72,16 +67,6 @@
         {
           "command": "copy-for-ai.copyForAIWithContext",
           "when": "editorHasSelection"
-        },
-        {
-          "command": "copy-for-ai.configureExcludePatterns"
-        }
-      ],
-      "view/title": [
-        {
-          "command": "copy-for-ai.configureExcludePatterns",
-          "when": "view == copy-for-ai.contextExplorer",
-          "group": "navigation"
         }
       ]
     },
@@ -162,12 +147,6 @@
           "type": "boolean",
           "default": true,
           "description": "是否遵循 .gitignore 檔案中定義的排除規則",
-          "scope": "resource"
-        },
-        "copyForAI.contextExplorer.showExcludeHints": {
-          "type": "boolean",
-          "default": true,
-          "description": "在檔案瀏覽器中顯示關於排除規則的提示",
           "scope": "resource"
         }
       }

@@ -2,7 +2,6 @@ import * as vscode from 'vscode';
 import { processCode, removeComments } from './codeAnalyzer';
 import { formatOutput } from './formatter';
 import { ContextExplorerProvider } from './contextExplorer/contextExplorerProvider';
-import { ExclusionSettingsPanel } from './contextExplorer/exclusionSettingsPanel';
 
 /**
  * 當擴展被啟動時執行
@@ -19,11 +18,6 @@ export function activate(context: vscode.ExtensionContext) {
     // 註冊帶有上下文的複製命令
     const contextCopyCommand = vscode.commands.registerCommand('copy-for-ai.copyForAIWithContext', async () => {
         await copyForAI(true);
-    });
-
-    // 註冊設定排除模式命令 - 現在開啟排除規則設定面板
-    const configureCommand = vscode.commands.registerCommand('copy-for-ai.configureExcludePatterns', () => {
-        ExclusionSettingsPanel.createOrShow(context.extensionUri, context);
     });
     
     // 註冊刷新檔案瀏覽器命令
@@ -51,7 +45,6 @@ export function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(
         basicCopyCommand, 
         contextCopyCommand, 
-        configureCommand,
         refreshCommand,
         contextExplorerView
     );
