@@ -273,14 +273,12 @@ export function activate(context: vscode.ExtensionContext) {
 - [x] 檔案勾選框在 Webview 中顯示且可正常切換狀態
 - [x] 資料夾選取行為正確，能連帶選取/取消選取所有子項目
 - [x] 專案根目錄節點顯示，且能一次選取所有檔案
-- [!] 篩選框位於 Webview 頂部，並能即時篩選文件
-  - [ ] BUG: 在篩選模式下 資料夾的勾選顯示不正常（資料夾勾選狀態必須正確反映其所有子項目選取狀態，且勾選操作必須影響所有子項目）
+- [x] 篩選框位於 Webview 頂部，並能即時篩選文件）
 - [x] 搜尋時切換到列表視圖顯示結果
 - [x] 摘要列在 Webview 底部顯示，包含選取數量、tokens 數及複製按鈕
 - [x] Webview 與擴展主程序間通信正常，狀態同步無誤
 - [x] 重新開啟 VSCode 後，Webview 能正確恢復之前的選取狀態，Search 欄位清空
 - [x] 切換到其他視圖再切回時，選取狀態保持不變
-- [ ]ISSUE: 關掉 VSCode 後再開啟，Search 應該要消失，目前是保留 Search 的內容（每次 VSCode 重啟後，搜尋欄位必須重置為空）
 - [x] 更新設定後立刻生效
 - [x] Token 數量和百分比正確計算和顯示
 - [x] 資料夾顯示其所有子檔案的 tokens 總和
@@ -292,4 +290,3 @@ export function activate(context: vscode.ExtensionContext) {
 - [x] 錯誤訊息在 WebView 中正確顯示
 - [x] 複製操作失敗時提供明確的錯誤提示
 - [x] 檔案路徑處理正確，避免相對路徑錯誤
-- [ ] BUG: 僅顯示已選取的右邊，還有保留舊的設定按紐，那個應該要移除了（必須移除可能存在的重複設定按鈕，只保留 TitleBar 中的一個）

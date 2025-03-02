@@ -11,14 +11,14 @@
         filter: '',
         showSelectedOnly: false,
         tokenLimit: 0,
-        copyInProgress: false
+        copyInProgress: false,
+        sessionId: '' // 新增會話 ID
     };
     
     // DOM 元素
     const filterInput = document.getElementById('filter-input');
     const clearFilterButton = document.getElementById('clear-filter');
     const showSelectedOnlyCheckbox = document.getElementById('show-selected-only');
-    const configureButton = document.getElementById('configure-button');
     const fileListElement = document.getElementById('file-list');
     const selectedCountElement = document.getElementById('selected-count');
     const tokensCountElement = document.getElementById('tokens-count');
@@ -60,10 +60,7 @@
         
         // 僅顯示已選取勾選框變更事件
         showSelectedOnlyCheckbox.addEventListener('change', handleShowSelectedOnlyChange);
-        
-        // 設定按鈕點擊事件
-        configureButton.addEventListener('click', handleConfigureClick);
-        
+                
         // 複製按鈕點擊事件
         copyButton.addEventListener('click', handleCopyClick);
     }
@@ -72,18 +69,23 @@
     function initialize() {
         setupEventListeners();
         
-        // 恢復之前的狀態，現在包括篩選狀態
+        // 恢復之前的狀態
         const previousState = vscode.getState();
-        if (previousState) {
+        
+        // 如果有之前的狀態，檢查會話 ID 是否相同
+        if (previousState && previousState.sessionId && previousState.sessionId === state.sessionId) {
+            // 相同會話 ID，表示只是在同一個 VSCode 工作階段中切換面板
+            // 恢復選取和展開狀態
             if (previousState.selectionState) {
                 state.selectionState = previousState.selectionState;
             }
+            
             if (previousState.expandedFolders) {
                 state.expandedFolders = previousState.expandedFolders;
             }
             
-            // 恢復篩選和僅顯示已選取狀態
-            if (previousState.filter !== undefined) {
+            // 恢復搜尋狀態
+            if (typeof previousState.filter === 'string') {
                 state.filter = previousState.filter;
                 filterInput.value = state.filter;
             } else {
@@ -98,17 +100,28 @@
                 state.showSelectedOnly = false;
                 showSelectedOnlyCheckbox.checked = false;
             }
-            
-            // 根據篩選狀態更新清除按鈕可見性
-            updateClearButtonVisibility();
         } else {
-            // 如果沒有先前的狀態，設置默認值
+            // 不同會話 ID 或沒有之前的狀態，表示是新的 VSCode 工作階段
+            // 只恢復選取和展開狀態，清空搜尋狀態
+            if (previousState) {
+                if (previousState.selectionState) {
+                    state.selectionState = previousState.selectionState;
+                }
+                
+                if (previousState.expandedFolders) {
+                    state.expandedFolders = previousState.expandedFolders;
+                }
+            }
+            
+            // 清空搜尋狀態
             state.filter = '';
             state.showSelectedOnly = false;
             filterInput.value = '';
             showSelectedOnlyCheckbox.checked = false;
-            updateClearButtonVisibility();
         }
+        
+        // 根據篩選狀態更新清除按鈕可見性
+        updateClearButtonVisibility();
         
         // 請求檔案列表
         vscode.postMessage({ command: 'getFiles' });
@@ -120,8 +133,9 @@
         updateClearButtonVisibility();
         renderFileList();
         
-        // 保存狀態
-        vscode.setState(state);
+        // 不直接調用 vscode.setState()，而是利用 saveState() 函數
+        // 這樣只會保存選取和展開狀態，不會保存篩選條件
+        saveState();
     }
     
     // 更新清除按鈕可見性
@@ -140,8 +154,8 @@
         updateClearButtonVisibility();
         renderFileList();
         
-        // 保存狀態
-        vscode.setState(state);
+        // 同樣使用 saveState() 函數，不直接調用 vscode.setState()
+        saveState();
     }
     
     // 僅顯示已選取處理函數
@@ -149,13 +163,8 @@
         state.showSelectedOnly = showSelectedOnlyCheckbox.checked;
         renderFileList();
         
-        // 保存狀態
-        vscode.setState(state);
-    }
-    
-    // 設定按鈕點擊處理函數
-    function handleConfigureClick() {
-        vscode.postMessage({ command: 'openSettings' });
+        // 同樣使用 saveState() 函數，不直接調用 vscode.setState()
+        saveState();
     }
     
     // 複製按鈕點擊處理函數
@@ -325,7 +334,16 @@
         const checkbox = document.createElement('input');
         checkbox.type = 'checkbox';
         checkbox.className = 'file-checkbox';
-        checkbox.checked = !!state.selectionState[item.path];
+        
+        // 設置勾選狀態
+        if (item.type === 'file') {
+            checkbox.checked = !!state.selectionState[item.path];
+        } else if (item.type === 'folder' || item.type === 'root') {
+            // 檢查資料夾的子項目是否已全部、部分或無勾選
+            const folderState = getFolderSelectionState(item);
+            checkbox.checked = folderState === 'all' || folderState === 'partial';
+            checkbox.indeterminate = folderState === 'partial';
+        }
         
         // 勾選事件
         checkbox.addEventListener('change', () => {
@@ -337,7 +355,7 @@
         // 檔案/資料夾圖示
         const iconElement = document.createElement('span');
         iconElement.className = item.type === 'file' ? 'file-icon' : 
-                              (item.type === 'root' ? 'root-icon' : 'folder-icon');
+                            (item.type === 'root' ? 'root-icon' : 'folder-icon');
         itemElement.appendChild(iconElement);
         
         // 名稱與路徑
@@ -647,20 +665,25 @@
     
     // 保存狀態
     function saveState() {
-        // 保存到 VSCode 視圖狀態，現在包含篩選狀態
-        vscode.setState({
+        // 創建一個包含所有狀態的物件，包括篩選和顯示模式
+        const stateToSave = {
             selectionState: state.selectionState,
             expandedFolders: state.expandedFolders,
             filter: state.filter,
-            showSelectedOnly: state.showSelectedOnly
-        });
+            showSelectedOnly: state.showSelectedOnly,
+            sessionId: state.sessionId // 保存會話 ID
+        };
         
-        // 同時保存到擴展持久化存儲 (但仍僅發送選取和展開狀態到後端)
+        // 保存到 VSCode 視圖狀態，包含所有狀態
+        vscode.setState(stateToSave);
+        
+        // 但發送到擴展持久化存儲時，仍僅發送選取和展開狀態
         vscode.postMessage({
             command: 'saveState',
             state: {
                 selectionState: state.selectionState,
                 expandedFolders: state.expandedFolders
+                // 不包含 filter 和 showSelectedOnly，因為這些不需要跨會話保存
             }
         });
     }
@@ -674,13 +697,51 @@
                 // 初始化檔案列表和狀態
                 state.files = message.files || [];
                 
-                // 只在首次載入或沒有狀態時使用保存的狀態
-                const currentState = vscode.getState();
-                if (!currentState || !currentState.selectionState) {
-                    state.selectionState = message.savedState?.selectionState || {};
-                    state.expandedFolders = message.savedState?.expandedFolders || {};
+                // 更新會話 ID
+                if (message.sessionId) {
+                    state.sessionId = message.sessionId;
                 }
                 
+                // 只在首次載入或沒有狀態時使用保存的狀態
+                const currentState = vscode.getState();
+                
+                // 檢查會話 ID 是否相同
+                const isSameSession = currentState && 
+                                     currentState.sessionId && 
+                                     currentState.sessionId === state.sessionId;
+                
+                if (isSameSession) {
+                    // 相同會話，恢復所有狀態
+                    if (currentState.selectionState) {
+                        state.selectionState = currentState.selectionState;
+                    }
+                    
+                    if (currentState.expandedFolders) {
+                        state.expandedFolders = currentState.expandedFolders;
+                    }
+                    
+                    if (typeof currentState.filter === 'string') {
+                        state.filter = currentState.filter;
+                        filterInput.value = state.filter;
+                    }
+                    
+                    if (currentState.showSelectedOnly !== undefined) {
+                        state.showSelectedOnly = currentState.showSelectedOnly;
+                        showSelectedOnlyCheckbox.checked = state.showSelectedOnly;
+                    }
+                } else {
+                    // 不同會話，只恢復選取和展開狀態
+                    state.selectionState = message.savedState?.selectionState || {};
+                    state.expandedFolders = message.savedState?.expandedFolders || {};
+                    
+                    // 清空搜尋狀態
+                    state.filter = '';
+                    filterInput.value = '';
+                    state.showSelectedOnly = false;
+                    showSelectedOnlyCheckbox.checked = false;
+                }
+                
+                // 重要：處理 token 限制
                 state.tokenLimit = message.tokenLimit || 0;
                 
                 // 預設展開根資料夾
@@ -693,7 +754,7 @@
                 }
                 
                 // 保存初始狀態
-                vscode.setState(state);
+                saveState();
                 
                 // 渲染檔案列表
                 renderFileList();

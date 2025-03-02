@@ -15,6 +15,7 @@ export class ContextExplorerProvider implements vscode.WebviewViewProvider {
     private _fileSystemWatcher?: vscode.FileSystemWatcher;
     private _outputChannel: vscode.OutputChannel;
     private _fileTreeService: FileTreeService;
+    private _sessionId: string;
 
     constructor(context: vscode.ExtensionContext) {
         this._extensionUri = context.extensionUri;
@@ -26,12 +27,23 @@ export class ContextExplorerProvider implements vscode.WebviewViewProvider {
         this._setupFileWatcher();
         this._log('Context Explorer 已初始化');
         
+        // 生成新的會話 ID
+        this._sessionId = this._generateSessionId();
+        this._log(`已生成新的會話 ID: ${this._sessionId}`);
+        
         // 監聽配置變更
         vscode.workspace.onDidChangeConfiguration(e => {
             if (e.affectsConfiguration('copyForAI.tokenLimit')) {
                 this._updateTokenLimit();
             }
         }, null, this._context.subscriptions);
+    }
+
+    /**
+     * 生成唯一的會話 ID
+     */
+    private _generateSessionId(): string {
+        return Date.now().toString() + '-' + Math.random().toString(36).substring(2, 15);
     }
 
     private _updateTokenLimit(): void {
@@ -212,12 +224,6 @@ export class ContextExplorerProvider implements vscode.WebviewViewProvider {
                             <input type="checkbox" id="show-selected-only">
                             <label for="show-selected-only">僅顯示已選取</label>
                         </div>
-                        <button id="configure-button" class="configure-button" title="設定排除規則">
-                            <svg width="16" height="16" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
-                                <path fill-rule="evenodd" clip-rule="evenodd" d="M9.1 4.4L8.6 2H7.4l-.5 2.4-.7.3-2-1.3-.9.8 1.3 2-.2.7-2.4.5v1.2l2.4.5.3.8-1.3 2 .8.8 2-1.3.8.3.4 2.3h1.2l.5-2.4.8-.3 2 1.3.8-.8-1.3-2 .3-.8 2.3-.4V7.4l-2.3-.5-.3-.8 1.3-2-.8-.8-2 1.3-.8-.3z" fill="currentColor"/>
-                                <path fill-rule="evenodd" clip-rule="evenodd" d="M8 9.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zM8 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6z" fill="currentColor"/>
-                            </svg>
-                        </button>
                     </div>
                 </div>
                 
@@ -254,13 +260,13 @@ export class ContextExplorerProvider implements vscode.WebviewViewProvider {
             this._logError('初始化 WebView 失敗: WebView 尚未建立');
             return;
         }
-
+    
         try {
             // 獲取工作區檔案
             const workspaceFiles = await this._fileTreeService.getWorkspaceFiles();
             this._log(`已載入 ${workspaceFiles.length} 個頂層項目`);
             
-            // 獲取先前保存的選取狀態
+            // 獲取先前保存的選取狀態 - 只保存選取和展開狀態，不包含篩選狀態
             const savedState = this._context.workspaceState.get('contextExplorer.state', {
                 selectionState: {},
                 expandedFolders: {}
@@ -270,12 +276,17 @@ export class ContextExplorerProvider implements vscode.WebviewViewProvider {
             const config = vscode.workspace.getConfiguration('copyForAI');
             const tokenLimit = config.get<number>('tokenLimit', 0);
             
-            // 將檔案和狀態發送到 WebView
+            // 將檔案、狀態和會話 ID 發送到 WebView
             this._view.webview.postMessage({
                 command: 'initialize',
                 files: workspaceFiles,
-                savedState: savedState,
-                tokenLimit: tokenLimit
+                savedState: {
+                    selectionState: savedState.selectionState || {},
+                    expandedFolders: savedState.expandedFolders || {}
+                    // 不包含 filter 和 showSelectedOnly 
+                },
+                tokenLimit: tokenLimit,
+                sessionId: this._sessionId // 傳遞會話 ID
             });
             
             this._log('WebView 初始化完成');
