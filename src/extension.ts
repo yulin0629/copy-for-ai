@@ -32,7 +32,11 @@ export function activate(context: vscode.ExtensionContext) {
         ContextExplorerProvider.viewType,
         contextExplorerProvider
     );
-    
+
+    const openSettingsCommand = vscode.commands.registerCommand('copy-for-ai.openSettings', () => {
+        vscode.commands.executeCommand('workbench.action.openSettings', 'copyForAI');
+    });
+        
     // 在 ContextExplorerProvider 中處理刷新命令
     context.subscriptions.push(
         vscode.commands.registerCommand('copy-for-ai.contextExplorer.refresh', () => {
@@ -46,7 +50,8 @@ export function activate(context: vscode.ExtensionContext) {
         basicCopyCommand, 
         contextCopyCommand, 
         refreshCommand,
-        contextExplorerView
+        contextExplorerView,
+        openSettingsCommand
     );
     
     // 註冊檔案關聯擴展

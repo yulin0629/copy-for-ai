@@ -44,9 +44,21 @@
         "command": "copy-for-ai.copyForAIWithContext",
         "title": "Copy For AI (With Context)",
         "category": "Copy For AI"
+      },
+      {
+        "command": "copy-for-ai.openSettings",
+        "title": "設定",
+        "icon": "$(gear)"
       }
     ],
     "menus": {
+      "view/title": [
+        {
+            "command": "copy-for-ai.openSettings",
+            "when": "view == copy-for-ai.contextExplorer",
+            "group": "navigation"
+        }
+      ],
       "editor/context": [
         {
           "when": "editorHasSelection",

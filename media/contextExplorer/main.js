@@ -72,25 +72,43 @@
     function initialize() {
         setupEventListeners();
         
-        // 恢復之前的狀態，但不包括篩選狀態
+        // 恢復之前的狀態，現在包括篩選狀態
         const previousState = vscode.getState();
         if (previousState) {
-            // 只恢復選取和展開狀態，不恢復篩選狀態
             if (previousState.selectionState) {
                 state.selectionState = previousState.selectionState;
             }
             if (previousState.expandedFolders) {
                 state.expandedFolders = previousState.expandedFolders;
             }
-            // 不恢復篩選和僅顯示已選取狀態
+            
+            // 恢復篩選和僅顯示已選取狀態
+            if (previousState.filter !== undefined) {
+                state.filter = previousState.filter;
+                filterInput.value = state.filter;
+            } else {
+                state.filter = '';
+                filterInput.value = '';
+            }
+            
+            if (previousState.showSelectedOnly !== undefined) {
+                state.showSelectedOnly = previousState.showSelectedOnly;
+                showSelectedOnlyCheckbox.checked = state.showSelectedOnly;
+            } else {
+                state.showSelectedOnly = false;
+                showSelectedOnlyCheckbox.checked = false;
+            }
+            
+            // 根據篩選狀態更新清除按鈕可見性
+            updateClearButtonVisibility();
+        } else {
+            // 如果沒有先前的狀態，設置默認值
             state.filter = '';
             state.showSelectedOnly = false;
+            filterInput.value = '';
+            showSelectedOnlyCheckbox.checked = false;
+            updateClearButtonVisibility();
         }
-        
-        // 清空篩選框，以防在 HTML 中有預設值
-        filterInput.value = '';
-        showSelectedOnlyCheckbox.checked = false;
-        updateClearButtonVisibility();
         
         // 請求檔案列表
         vscode.postMessage({ command: 'getFiles' });
@@ -255,10 +273,18 @@
                 const itemMatchesFilter = item.name.toLowerCase().includes(state.filter) || 
                                          item.path.toLowerCase().includes(state.filter);
                 
-                // 只有文件類型才加入結果，避免資料夾單獨出現在結果中
-                if (itemMatchesFilter && item.type === 'file') {
-                    // 如果僅顯示已選取，檢查選取狀態
-                    if (!state.showSelectedOnly || state.selectionState[item.path]) {
+                // 同時包含匹配篩選條件的檔案和資料夾
+                if (itemMatchesFilter) {
+                    // 對於檔案，遵循"僅顯示已選取"設定
+                    if (item.type === 'file') {
+                        if (!state.showSelectedOnly || state.selectionState[item.path]) {
+                            matchingItems.push({
+                                item: item,
+                                displayPath: fullPath
+                            });
+                        }
+                    } else if ((item.type === 'folder' || item.type === 'root') && !state.showSelectedOnly) {
+                        // 對於資料夾/根目錄，當不在"僅顯示已選取"模式時才添加到結果中
                         matchingItems.push({
                             item: item,
                             displayPath: fullPath
@@ -266,9 +292,8 @@
                     }
                 }
                 
-                // 檢查資料夾內部是否有符合的文件
+                // 繼續搜索子項目
                 if ((item.type === 'folder' || item.type === 'root') && item.children) {
-                    // 繼續搜尋子項目
                     findMatchingItems(item.children, fullPath);
                 }
             }
@@ -622,14 +647,15 @@
     
     // 保存狀態
     function saveState() {
-        // 保存到 VSCode 視圖狀態，不再包含篩選狀態
+        // 保存到 VSCode 視圖狀態，現在包含篩選狀態
         vscode.setState({
             selectionState: state.selectionState,
-            expandedFolders: state.expandedFolders
-            // 不保存 filter 和 showSelectedOnly
+            expandedFolders: state.expandedFolders,
+            filter: state.filter,
+            showSelectedOnly: state.showSelectedOnly
         });
         
-        // 同時保存到擴展持久化存儲
+        // 同時保存到擴展持久化存儲 (但仍僅發送選取和展開狀態到後端)
         vscode.postMessage({
             command: 'saveState',
             state: {
@@ -682,6 +708,11 @@
             case 'copyStatus':
                 // 處理複製狀態更新
                 handleCopyStatus(message);
+                break;
+            case 'updateTokenLimit':
+                // 更新令牌限制並重新渲染以反映變更
+                state.tokenLimit = message.tokenLimit || 0;
+                renderFileList();
                 break;
         }
     });

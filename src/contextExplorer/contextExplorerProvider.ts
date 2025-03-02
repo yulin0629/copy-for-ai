@@ -25,6 +25,30 @@ export class ContextExplorerProvider implements vscode.WebviewViewProvider {
         this._fileTreeService = new FileTreeService(this._outputChannel);
         this._setupFileWatcher();
         this._log('Context Explorer 已初始化');
+        
+        // 監聽配置變更
+        vscode.workspace.onDidChangeConfiguration(e => {
+            if (e.affectsConfiguration('copyForAI.tokenLimit')) {
+                this._updateTokenLimit();
+            }
+        }, null, this._context.subscriptions);
+    }
+
+    private _updateTokenLimit(): void {
+        if (!this._view) {
+            this._logError('更新 Token Limit 失敗: WebView 尚未建立');
+            return;
+        }
+        
+        const config = vscode.workspace.getConfiguration('copyForAI');
+        const tokenLimit = config.get<number>('tokenLimit', 0);
+        
+        this._view.webview.postMessage({
+            command: 'updateTokenLimit',
+            tokenLimit: tokenLimit
+        });
+        
+        this._log('已通知 WebView 更新 Token Limit: ' + tokenLimit);
     }
 
     /**
@@ -177,8 +201,8 @@ export class ContextExplorerProvider implements vscode.WebviewViewProvider {
                 <div class="filter-box">
                     <div class="search-container">
                         <svg class="search-icon" width="16" height="16" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
-                            <path fill-rule="evenodd" clip-rule="evenodd" d="M10.442 10.442a1 1 0 0 1 1.415 0l3.85 3.85a1 1 0 0 1-1.414 1.415l-3.85-3.85a1 1 0 0 1 0-1.415z" fill="currentColor"/>
-                            <path fill-rule="evenodd" clip-rule="evenodd" d="M6.5 12a5.5 5.5 0 1 0 0-11 5.5 5.5 0 0 0 0 11zM6.5 2a4 4 0 1 1 0 8 4 4 0 0 1 0-8z" fill="currentColor"/>
+                            <circle cx="6.5" cy="6.5" r="5.5" stroke="currentColor" stroke-width="1.5" fill="none" />
+                            <line x1="11" y1="11" x2="15" y2="15" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
                         </svg>
                         <input type="text" id="filter-input" placeholder="搜尋檔案...">
                         <button id="clear-filter" class="clear-button">✕</button>
