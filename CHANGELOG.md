@@ -4,14 +4,44 @@ All notable changes to the "copy-for-ai" extension will be documented in this fi
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## [0.1.1] - 2025-03-03
+
+### 修正
+- 修正跨平台檔案路徑分隔符號問題
+
+## [0.1.0] - 2025-03-03
+
+### 新增
+- 新增會話管理機制以優化狀態持久化
+- 新增 Context Explorer 檢視介面功能
+- 優化 Context Explorer 檔案瀏覽器使用體驗
+- 加強檔案排除規則與更新過濾機制
+
+### 改進
+- 將檔案系統操作抽離至 FileTreeService 類別
+- 修正資料夾選取狀態與篩選邏輯
+- 簡化設定面板，移除獨立視窗改用 VSCode 內建設定頁面
+- 改善 VSCode 擴充套件開發設定
+
+### 文件
+- 更新 Context Explorer 需求項目狀態追蹤
+- 更新 Context Explorer 需求與畫面設計文件
+- 簡化 File Explorer 側邊欄介面說明文件
+- 更新 Context Explorer 功能文件
+
 ## [0.0.3] - 2024-02-28
 
 ### 新增
 - 新增是否包含註解的設定選項
 - 增強註解移除功能，支援更多程式語言
 - 改進程式碼格式化，保持更好的可讀性
+- 新增註解篩選功能並改進格式化輸出
 
-## [0.0.2] - 未發布
+### 文件
+- 修正 README.md 中的程式碼區塊格式
+- 移除發佈指引並新增 Context Explorer 相關文件
+
+## [0.0.2] - 2024-02-27
 
 ### 新增
 - 程式碼上下文分析與輸出格式功能
