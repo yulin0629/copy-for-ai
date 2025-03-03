@@ -200,15 +200,16 @@ export class FileTreeService {
         
         // 建立樹狀結構
         for (const file of files) {
-            const relativePath = vscode.workspace.asRelativePath(file, false);
-            const parts = relativePath.split(path.sep);
+            // 統一使用 / 作為路徑分隔符
+            const relativePath = vscode.workspace.asRelativePath(file, false).replace(/\\/g, '/');
+            const parts = relativePath.split('/');
             
             let currentPath = '';
             
             // 確保每一層路徑都創建對應的資料夾節點
             for (let i = 0; i < parts.length - 1; i++) {
                 const part = parts[i];
-                currentPath = currentPath ? `${currentPath}${path.sep}${part}` : part;
+                currentPath = currentPath ? `${currentPath}/${part}` : part;
                 
                 if (!folderMap[currentPath]) {
                     folderMap[currentPath] = {
@@ -225,8 +226,8 @@ export class FileTreeService {
             
             // 處理檔案
             const fileName = parts[parts.length - 1];
-            const filePath = parts.join(path.sep);
-            const parentPath = parts.slice(0, parts.length - 1).join(path.sep);
+            const filePath = parts.join('/');
+            const parentPath = parts.slice(0, parts.length - 1).join('/');
             
             // 估算檔案 tokens
             const estimatedTokens = this.estimateTokens(file.fsPath);
@@ -272,7 +273,7 @@ export class FileTreeService {
         
         // 為每個資料夾建立正確的父子關係
         for (const [folderPath, folder] of Object.entries(folderMap)) {
-            const parts = folderPath.split(path.sep);
+            const parts = folderPath.split('/');
             
             if (parts.length === 1) {
                 // 頂層資料夾直接加入結果
@@ -281,7 +282,7 @@ export class FileTreeService {
                 }
             } else {
                 // 將子資料夾加入到父資料夾
-                const parentPath = parts.slice(0, parts.length - 1).join(path.sep);
+                const parentPath = parts.slice(0, parts.length - 1).join('/');
                 if (folderMap[parentPath]) {
                     const parentNode = folderMap[parentPath].node;
                     if (parentNode.children) {

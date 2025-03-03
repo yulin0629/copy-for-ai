@@ -2,7 +2,7 @@
   "name": "copy-for-ai",
   "displayName": "Copy For AI",
   "description": "複製程式碼為 AI 友善的 Markdown, XML, JSON 格式",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "repository": {
     "type": "git",
     "url": "https://github.com/yulin0629/Copy-For-AI.git"
