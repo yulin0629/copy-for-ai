@@ -65,9 +65,9 @@
 
 ## 驗收標準
 
-- [ ] VSCode 檔案瀏覽器中能夠通過右鍵選單添加檔案到 Context Explorer
-- [ ] VSCode 檔案瀏覽器中能夠通過右鍵選單添加資料夾下所有檔案到 Context Explorer
-- [ ] 編輯器頁籤右鍵選單能成功添加檔案到 Context Explorer
+- [x] VSCode 檔案瀏覽器中能夠通過右鍵選單添加檔案到 Context Explorer
+- [x] VSCode 檔案瀏覽器中能夠通過右鍵選單添加資料夾下所有檔案到 Context Explorer
+- [x] 編輯器頁籤右鍵選單能成功添加檔案到 Context Explorer
 - [ ] 檔案可以從 VSCode 檔案瀏覽器拖放到 Context Explorer
 - [ ] 拖放時提供明確的視覺反饋
 - [ ] 拖放後自動展開相應資料夾並顯示新添加的檔案
