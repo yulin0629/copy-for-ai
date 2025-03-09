@@ -10,7 +10,7 @@
 
 #### 右鍵選單擴充：
 
-- 在 VSCode 原生檔案瀏覽器（Explorer）中，為檔案和資料夾添加「添加到 Copy For AI」右鍵選單項目
+- 在 VSCode 原生檔案瀏覽器（Explorer）中，為檔案和資料夾添加「Add Copy For AI Explorer」右鍵選單項目
 - 單一檔案選取時，僅選取該檔案
 - 資料夾選取時，則自動選取該資料夾下所有符合篩選條件的檔案
 - 多檔案、資料夾選取時，一次將所有選取的檔案、資料夾(含以下所有檔案)添加到 Context Explorer
@@ -19,7 +19,7 @@
 
 #### 編輯器頁籤右鍵選單：
 
-- 在編輯器的檔案頁籤右鍵選單中，新增「添加到 Copy For AI」選項
+- 在編輯器的檔案頁籤右鍵選單中，新增「Add to Copy For AI Explorer」選項
 - 允許使用者直接從當前編輯的檔案中快速添加
 
 
@@ -45,13 +45,13 @@
 ### 1. 從 VSCode 檔案瀏覽器添加檔案
 
 1. 使用者在 VSCode 檔案瀏覽器中右鍵點擊檔案或資料夾
-2. 從上下文選單中選擇「添加到 Copy For AI」
+2. 從上下文選單中選擇「Add Copy For AI Explorer」
 3. Context Explorer 側邊欄中對應的檔案或資料夾自動勾選
 
 ### 2. 從編輯器頁籤添加檔案
 
 1. 使用者在編輯器頁籤上右鍵點擊
-2. 從上下文選單中選擇「添加到 Copy For AI」
+2. 從上下文選單中選擇「Add Copy For AI Explorer」
 3. Context Explorer 側邊欄中對應的檔案自動勾選
 
 ### 3. 拖放添加檔案
@@ -66,6 +66,7 @@
 ## 驗收標準
 
 - [ ] VSCode 檔案瀏覽器中能夠通過右鍵選單添加檔案到 Context Explorer
+- [ ] VSCode 檔案瀏覽器中能夠通過右鍵選單添加資料夾下所有檔案到 Context Explorer
 - [ ] 編輯器頁籤右鍵選單能成功添加檔案到 Context Explorer
 - [ ] 檔案可以從 VSCode 檔案瀏覽器拖放到 Context Explorer
 - [ ] 拖放時提供明確的視覺反饋
