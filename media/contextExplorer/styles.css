@@ -480,3 +480,92 @@ body, html {
 .debug-mode .debug-info {
     display: block;
 }
+
+/* 拖放相關樣式 */
+.drag-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.drag-overlay.active {
+    opacity: 1;
+    pointer-events: all;
+}
+
+.drag-message {
+    background-color: var(--background-color);
+    border: 2px dashed var(--button-background);
+    padding: 30px;
+    border-radius: 8px;
+    font-size: 16px;
+    color: var(--foreground-color);
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    min-width: 200px;
+}
+
+.drag-icon {
+    color: var(--button-background);
+    animation: pulse 1.5s infinite ease-in-out;
+}
+
+@keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+    100% { transform: scale(1); }
+}
+
+/* 拖放相關樣式 */
+.drag-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.drag-overlay.active {
+    opacity: 1;
+    pointer-events: all;
+}
+
+.drag-message {
+    background-color: var(--background-color);
+    border: 2px dashed var(--button-background);
+    padding: 20px;
+    border-radius: 8px;
+    font-size: 16px;
+    color: var(--foreground-color);
+}
+
+/* 項目高亮效果 - 用於新添加的項目 */
+.file-item.highlight {
+    animation: highlight-pulse 2s ease;
+}
+
+@keyframes highlight-pulse {
+    0% { background-color: var(--button-background); color: var(--button-foreground); }
+    100% { background-color: transparent; color: var(--foreground-color); }
+}

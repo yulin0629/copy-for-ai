@@ -49,6 +49,16 @@
         "command": "copy-for-ai.openSettings",
         "title": "設定",
         "icon": "$(gear)"
+      },
+      {
+        "command": "copy-for-ai.addToContextExplorer",
+        "title": "添加到 Copy For AI",
+        "category": "Copy For AI"
+      },
+      {
+        "command": "copy-for-ai.addCurrentFileToContextExplorer",
+        "title": "添加到 Copy For AI",
+        "category": "Copy For AI"
       }
     ],
     "menus": {
@@ -79,6 +89,18 @@
         {
           "command": "copy-for-ai.copyForAIWithContext",
           "when": "editorHasSelection"
+        }
+      ],
+      "explorer/context": [
+        {
+          "command": "copy-for-ai.addToContextExplorer",
+          "group": "2_workspace"
+        }
+      ],
+      "editor/title/context": [
+        {
+          "command": "copy-for-ai.addCurrentFileToContextExplorer",
+          "group": "1_copy"
         }
       ]
     },

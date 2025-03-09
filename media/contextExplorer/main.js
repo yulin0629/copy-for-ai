@@ -26,6 +26,8 @@
     const progressBar = document.getElementById('progress-bar');
     const progressPercentage = document.getElementById('progress-percentage');
     const copyButton = document.getElementById('copy-button');
+    const dragOverlay = document.getElementById('drag-overlay');
+    const dropTarget = document.getElementById('drop-target');
     
     // 防抖函數 - 用於搜尋輸入優化
     function debounce(func, wait) {
@@ -63,6 +65,41 @@
                 
         // 複製按鈕點擊事件
         copyButton.addEventListener('click', handleCopyClick);
+        
+        // 拖放相關事件
+        setupDragAndDrop();
+    }
+    
+    // 設置拖放事件處理
+    function setupDragAndDrop() {
+        // 拖放事件處理
+        dropTarget.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            dragOverlay.classList.add('active');
+        });
+        
+        dropTarget.addEventListener('dragleave', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            dragOverlay.classList.remove('active');
+        });
+        
+        dropTarget.addEventListener('drop', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            dragOverlay.classList.remove('active');
+            
+            // 由於 VS Code WebView 安全限制，我們需要發送消息給擴展處理拖放
+            vscode.postMessage({
+                command: 'handleDroppedFiles'
+            });
+        });
+        
+        // 點擊覆蓋層時關閉
+        dragOverlay.addEventListener('click', function() {
+            dragOverlay.classList.remove('active');
+        });
     }
     
     // 初始化 WebView
@@ -688,6 +725,151 @@
         });
     }
     
+    // 從文件路徑中獲取所有父資料夾路徑
+    function getParentPaths(filePath) {
+        const parts = filePath.split('/');
+        const paths = [];
+        let currentPath = '';
+        
+        // 建構父資料夾路徑
+        for (let i = 0; i < parts.length - 1; i++) {
+            if (parts[i]) {
+                currentPath = currentPath ? `${currentPath}/${parts[i]}` : parts[i];
+                paths.push(currentPath);
+            }
+        }
+        
+        return paths;
+    }
+    
+    // 處理新添加的檔案選取
+    function handleAddFilesToSelection(files) {
+        console.log('收到檔案添加請求:', files);
+        
+        // 追蹤選取的項目和擴展的路徑
+        const selectedItems = [];
+        const expandedPaths = new Set();
+        
+        for (const file of files) {
+            if (file.isDirectory) {
+                // 如果是資料夾，找到它並選取所有子項目
+                const dirItem = findItemByPath(state.files, file.relativePath);
+                if (dirItem) {
+                    selectedItems.push(dirItem);
+                    
+                    // 展開此資料夾
+                    state.expandedFolders[dirItem.path] = true;
+                    expandedPaths.add(dirItem.path);
+                    
+                    // 選取所有子項目
+                    selectAllChildren(dirItem, true);
+                    
+                    // 展開所有父資料夾
+                    const parentPaths = getParentPaths(dirItem.path);
+                    for (const parentPath of parentPaths) {
+                        state.expandedFolders[parentPath] = true;
+                        expandedPaths.add(parentPath);
+                    }
+                }
+            } else {
+                // 如果是檔案，找到它並選取
+                const fileItem = findItemByPath(state.files, file.relativePath);
+                if (fileItem) {
+                    selectedItems.push(fileItem);
+                    state.selectionState[fileItem.path] = true;
+                    
+                    // 展開所有父資料夾
+                    const parentPaths = getParentPaths(fileItem.path);
+                    for (const parentPath of parentPaths) {
+                        state.expandedFolders[parentPath] = true;
+                        expandedPaths.add(parentPath);
+                    }
+                }
+            }
+        }
+        
+        // 如果找到項目
+        if (selectedItems.length > 0) {
+            // 保存選取狀態
+            saveState();
+            
+            // 重新渲染檔案列表
+            renderFileList();
+            
+            // 延遲一下等待 DOM 更新，然後滾動到第一個選取的項目
+            setTimeout(() => {
+                scrollToSelectedItem(selectedItems[0]);
+            }, 100);
+            
+            // 顯示通知
+            showMessage(`已添加 ${selectedItems.length} 個項目到選取清單`);
+        } else {
+            showMessage('未找到匹配的檔案或資料夾', true);
+        }
+    }
+    
+    // 根據路徑查找項目
+    function findItemByPath(items, targetPath) {
+        for (const item of items) {
+            // 檢查是否為目標項目
+            if (item.path === targetPath) {
+                return item;
+            }
+            
+            // 對於資料夾，遞迴搜索子項目
+            if ((item.type === 'folder' || item.type === 'root') && item.children) {
+                const foundItem = findItemByPath(item.children, targetPath);
+                if (foundItem) {
+                    return foundItem;
+                }
+            }
+        }
+        
+        return null;
+    }
+    
+    // 滾動到選取的項目
+    function scrollToSelectedItem(item) {
+        // 找到所有可見的檔案項目
+        const fileItems = document.querySelectorAll('.file-item');
+        
+        // 尋找匹配目標項目的元素
+        for (const fileItem of fileItems) {
+            const nameElement = fileItem.querySelector('.file-name');
+            
+            if (nameElement && nameElement.textContent === item.name) {
+                // 對於檔案，檢查 title 是否與路徑匹配
+                if (nameElement.title === item.path) {
+                    // 這是我們的目標項目
+                    scrollIntoViewWithHighlight(fileItem);
+                    return;
+                }
+            }
+        }
+        
+        // 如果找不到精確匹配，嘗試查找包含項目路徑的容器
+        for (const fileItem of fileItems) {
+            if (fileItem.innerHTML.includes(item.path)) {
+                scrollIntoViewWithHighlight(fileItem);
+                return;
+            }
+        }
+    }
+    
+    // 滾動項目到可視區域並高亮
+    function scrollIntoViewWithHighlight(element) {
+        // 將元素滾動到可視區域
+        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        
+        // 添加高亮效果
+        element.classList.add('highlight');
+        
+        // 動畫結束後移除高亮
+        setTimeout(() => {
+            element.classList.remove('highlight');
+        }, 2000);
+    }
+    
     // 處理從擴展來的消息
     window.addEventListener('message', event => {
         const message = event.data;
@@ -770,10 +952,16 @@
                 // 處理複製狀態更新
                 handleCopyStatus(message);
                 break;
+                
             case 'updateTokenLimit':
                 // 更新令牌限制並重新渲染以反映變更
                 state.tokenLimit = message.tokenLimit || 0;
                 renderFileList();
+                break;
+                
+            case 'addFilesToSelection':
+                // 處理從擴展添加的檔案
+                handleAddFilesToSelection(message.files);
                 break;
         }
     });

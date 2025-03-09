@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
+import * as fs from 'fs';
 import { formatOutput } from '../formatter';
 import { FileTreeService, TreeNode } from './fileTreeService';
 
@@ -70,6 +71,42 @@ export class ContextExplorerProvider implements vscode.WebviewViewProvider {
     public refreshFiles(): Promise<void> {
         this._log('從外部命令觸發檔案列表刷新');
         return this._refreshFiles();
+    }
+
+    /**
+     * 將檔案添加到選取清單中
+     * @param filePaths 要添加的檔案路徑數組
+     */
+    public async addFilesToSelection(filePaths: string[]): Promise<void> {
+        if (!this._view) {
+            this._logError('添加檔案失敗: WebView 尚未建立');
+            return;
+        }
+
+        try {
+            // 將路徑轉換為檔案資訊
+            const fileInfo = filePaths.map(filePath => {
+                // 檢查檔案是否存在
+                const exists = fs.existsSync(filePath);
+                const isDirectory = exists ? fs.lstatSync(filePath).isDirectory() : false;
+                
+                return {
+                    fsPath: filePath,
+                    relativePath: vscode.workspace.asRelativePath(filePath, false),
+                    isDirectory
+                };
+            });
+
+            // 發送檔案路徑到 WebView 進行選取
+            this._view.webview.postMessage({
+                command: 'addFilesToSelection',
+                files: fileInfo
+            });
+
+            this._log(`已發送 ${filePaths.length} 個檔案到 WebView 選取`);
+        } catch (error) {
+            this._logError('添加檔案到選取時出錯', error);
+        }
     }
 
     /**
@@ -172,8 +209,20 @@ export class ContextExplorerProvider implements vscode.WebviewViewProvider {
             if (webviewView.visible) {
                 this._log('WebView 變為可見，恢復狀態');
                 this._initializeWebView();
+                
+                // 設置拖放處理
+                this._setupDragAndDrop(webviewView);
             }
         });
+    }
+
+    /**
+     * 設置拖放處理
+     * 由於 VS Code WebView 的安全限制，拖放功能需要特殊處理
+     */
+    private _setupDragAndDrop(webviewView: vscode.WebviewView): void {
+        // 注意：由於 VS Code WebView 限制，完整拖放功能需要額外 API 支持
+        this._log('拖放 API 設置中 - 注意目前 WebView 對拖放的支援有限');
     }
 
     /**
@@ -228,8 +277,13 @@ export class ContextExplorerProvider implements vscode.WebviewViewProvider {
                 </div>
                 
                 <!-- 檔案列表區塊 -->
-                <div class="file-list-container">
+                <div class="file-list-container" id="drop-target">
                     <div id="file-list" class="file-list"></div>
+                </div>
+                
+                <!-- 拖放提示覆蓋層 -->
+                <div id="drag-overlay" class="drag-overlay">
+                    <div class="drag-message">拖曳至此處添加檔案</div>
                 </div>
                 
                 <!-- 底部摘要列 -->
@@ -322,6 +376,12 @@ export class ContextExplorerProvider implements vscode.WebviewViewProvider {
                 vscode.commands.executeCommand('workbench.action.openSettings', 'copyForAI');
                 break;
             
+            case 'handleDroppedFiles':
+                // 處理從 WebView 接收的拖放檔案請求
+                // 由於技術限制，這裡只是一個佔位，實際拖放需要 VS Code API 增強
+                this._log('收到拖放檔案請求，但目前 WebView 對拖放支援有限');
+                break;
+                
             default:
                 this._log(`未知的 WebView 訊息指令: ${message.command}`);
                 break;
