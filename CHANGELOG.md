@@ -4,6 +4,18 @@ All notable changes to the "copy-for-ai" extension will be documented in this fi
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## [0.1.2] - 2025-03-09
+
+### 新增
+- 優化檔案瀏覽器狀態管理機制
+- 新增右鍵選單功能，支援從檔案總管直接添加檔案/資料夾
+- 支援從編輯器頁籤添加檔案
+
+### 改進
+- 重構狀態管理邏輯以提升程式碼可維護性
+- 將 UI 狀態與檔案選擇狀態分開管理
+- 簡化 WebView 和擴展端的狀態同步機制
+
 ## [0.1.1] - 2025-03-03
 
 ### 修正
