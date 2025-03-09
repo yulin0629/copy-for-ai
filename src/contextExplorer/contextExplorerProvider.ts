@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import { formatOutput } from '../formatter';
 import { FileTreeService, TreeNode } from './fileTreeService';
+import { StateManager } from './stateManager';
 
 /**
  * Context Explorer 視圖提供者
@@ -16,6 +17,7 @@ export class ContextExplorerProvider implements vscode.WebviewViewProvider {
     private _outputChannel: vscode.OutputChannel;
     private _fileTreeService: FileTreeService;
     private _sessionId: string;
+    private _stateManager: StateManager;
 
     constructor(context: vscode.ExtensionContext) {
         this._extensionUri = context.extensionUri;
@@ -24,6 +26,8 @@ export class ContextExplorerProvider implements vscode.WebviewViewProvider {
         this._outputChannel = vscode.window.createOutputChannel('Copy For AI');
         // 初始化文件樹服務
         this._fileTreeService = new FileTreeService(this._outputChannel);
+        // 初始化狀態管理器
+        this._stateManager = new StateManager(context);
         this._setupFileWatcher();
         this._log('Context Explorer 已初始化');
         
@@ -266,11 +270,8 @@ export class ContextExplorerProvider implements vscode.WebviewViewProvider {
             const workspaceFiles = await this._fileTreeService.getWorkspaceFiles();
             this._log(`已載入 ${workspaceFiles.length} 個頂層項目`);
             
-            // 獲取先前保存的選取狀態 - 只保存選取和展開狀態，不包含篩選狀態
-            const savedState = this._context.workspaceState.get('contextExplorer.state', {
-                selectionState: {},
-                expandedFolders: {}
-            });
+            // 使用狀態管理器獲取保存的狀態
+            const savedState = this._stateManager.getState();
             
             // 獲取設定值
             const config = vscode.workspace.getConfiguration('copyForAI');
@@ -280,13 +281,9 @@ export class ContextExplorerProvider implements vscode.WebviewViewProvider {
             this._view.webview.postMessage({
                 command: 'initialize',
                 files: workspaceFiles,
-                savedState: {
-                    selectionState: savedState.selectionState || {},
-                    expandedFolders: savedState.expandedFolders || {}
-                    // 不包含 filter 和 showSelectedOnly 
-                },
+                savedState,
                 tokenLimit: tokenLimit,
-                sessionId: this._sessionId // 傳遞會話 ID
+                sessionId: this._sessionId
             });
             
             this._log('WebView 初始化完成');
@@ -296,35 +293,33 @@ export class ContextExplorerProvider implements vscode.WebviewViewProvider {
     }
 
     /**
-     * 處理來自 WebView 的訊息
+     * 處理來自 WebView 的消息
      */
     private async _handleMessage(message: any): Promise<void> {
-        this._log(`收到 WebView 訊息: ${message.command}`);
-        
-        switch (message.command) {
-            case 'getFiles':
-                await this._refreshFiles();
-                break;
-            
-            case 'saveState':
-                // 保存選取和展開狀態
-                this._context.workspaceState.update('contextExplorer.state', message.state);
-                this._log('已儲存 WebView 狀態');
-                break;
-            
-            case 'copyToClipboard':
-                this._log(`收到複製請求，選取的檔案: ${message.selectedFiles.length} 個`);
-                await this._copySelectedFilesToClipboard(message.selectedFiles);
-                break;
-                
-            case 'openSettings':
-                // 修改為開啟所有擴展設定，而不只是 excludePatterns
-                vscode.commands.executeCommand('workbench.action.openSettings', 'copyForAI');
-                break;
-            
-            default:
-                this._log(`未知的 WebView 訊息指令: ${message.command}`);
-                break;
+        try {
+            switch (message.command) {
+                case 'getFiles':
+                    // 重新載入檔案列表
+                    await this._refreshFiles();
+                    break;
+                    
+                case 'saveState':
+                    // 使用狀態管理器保存狀態
+                    await this._stateManager.updateState(message.state);
+                    this._log('已儲存 WebView 狀態');
+                    break;
+                    
+                case 'copySelectedFiles':
+                    // 複製選中的檔案
+                    await this._copySelectedFilesToClipboard(message.selectedFiles);
+                    break;
+                    
+                default:
+                    this._log(`收到未知命令: ${message.command}`);
+                    break;
+            }
+        } catch (error) {
+            this._logError('處理 WebView 消息失敗', error);
         }
     }
 
@@ -496,5 +491,88 @@ export class ContextExplorerProvider implements vscode.WebviewViewProvider {
             text += possible.charAt(Math.floor(Math.random() * possible.length));
         }
         return text;
+    }
+
+    /**
+     * 添加檔案到 Context Explorer 選擇列表
+     * @param filePath 檔案路徑
+     */
+    public async addFileToExplorer(filePath: string): Promise<void> {
+        try {
+            // 使用狀態管理器更新檔案選擇狀態並展開父資料夾
+            const updatedState = await this._stateManager.selectFileAndExpandParents(filePath, true);
+            
+            // 如果 WebView 已經啟動，則發送消息更新 UI
+            if (this._view) {
+                this._view.webview.postMessage({
+                    command: 'updateState',
+                    state: updatedState
+                });
+            }
+            
+            this._log(`已添加檔案到選擇列表: ${vscode.workspace.asRelativePath(filePath)}`);
+            vscode.window.showInformationMessage(`已添加 ${path.basename(filePath)} 到 Copy For AI Explorer`);
+        } catch (error) {
+            this._logError('添加檔案到選擇列表失敗', error);
+            vscode.window.showErrorMessage(`添加檔案失敗: ${error instanceof Error ? error.message : String(error)}`);
+        }
+    }
+
+    /**
+     * 添加資料夾下所有檔案到 Context Explorer 選擇列表
+     * @param folderPath 資料夾路徑
+     */
+    public async addFolderToExplorer(folderPath: string): Promise<void> {
+        try {
+            // 顯示進度指示
+            await vscode.window.withProgress({
+                location: vscode.ProgressLocation.Notification,
+                title: "正在添加資料夾中的檔案...",
+                cancellable: false
+            }, async (progress) => {
+                // 確保 FileTreeService 已初始化
+                if (!this._fileTreeService) {
+                    this._logError('FileTreeService 未初始化');
+                    return;
+                }
+                
+                // 獲取資料夾下所有檔案
+                const folderUri = vscode.Uri.file(folderPath);
+                const folderPattern = new vscode.RelativePattern(folderUri, '**/*');
+                const files = await vscode.workspace.findFiles(folderPattern);
+                
+                // 過濾並只保留文字檔案
+                const textFiles = files.filter(file => this._fileTreeService.isTextFile(file.fsPath));
+                
+                // 準備檔案路徑列表
+                const filePaths = textFiles.map(file => file.fsPath);
+                
+                // 更新進度
+                for (let i = 0; i < filePaths.length; i++) {
+                    progress.report({ 
+                        message: `(${i+1}/${filePaths.length}) ${path.basename(filePaths[i])}`,
+                        increment: 100 / filePaths.length
+                    });
+                }
+                
+                // 使用狀態管理器批量更新檔案選擇狀態
+                const updatedState = await this._stateManager.selectFilesAndExpandParents(filePaths, true);
+                
+                // 如果 WebView 已經啟動，則發送消息更新 UI
+                if (this._view) {
+                    this._view.webview.postMessage({
+                        command: 'updateState',
+                        state: updatedState
+                    });
+                }
+                
+                const relativeFolder = vscode.workspace.asRelativePath(folderPath);
+                this._log(`已添加資料夾 ${relativeFolder} 下的 ${textFiles.length} 個檔案到選擇列表`);
+                vscode.window.showInformationMessage(`已添加 ${path.basename(folderPath)} 資料夾下的 ${textFiles.length} 個檔案到 Copy For AI Explorer`);
+            });
+        } catch (error) {
+            this._logError('添加資料夾到選擇列表失敗', error);
+            vscode.window.showErrorMessage(`添加資料夾失敗: ${error instanceof Error ? error.message : String(error)}`);
+        }
     }
 }

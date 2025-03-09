@@ -12,7 +12,7 @@
         showSelectedOnly: false,
         tokenLimit: 0,
         copyInProgress: false,
-        sessionId: '' // 新增會話 ID
+        sessionId: '' // 會話 ID
     };
     
     // DOM 元素
@@ -26,6 +26,61 @@
     const progressBar = document.getElementById('progress-bar');
     const progressPercentage = document.getElementById('progress-percentage');
     const copyButton = document.getElementById('copy-button');
+    
+    // 狀態管理器 - 統一管理狀態的保存和載入
+    const stateManager = {
+        // 保存 WebView UI 狀態
+        saveUIState() {
+            vscode.setState({
+                filter: state.filter,
+                showSelectedOnly: state.showSelectedOnly,
+                sessionId: state.sessionId
+            });
+        },
+        
+        // 載入 WebView UI 狀態
+        loadUIState() {
+            const savedState = vscode.getState();
+            if (!savedState) return false;
+            
+            if (savedState.sessionId === state.sessionId) {
+                state.filter = savedState.filter || '';
+                filterInput.value = state.filter;
+                
+                state.showSelectedOnly = !!savedState.showSelectedOnly;
+                showSelectedOnlyCheckbox.checked = state.showSelectedOnly;
+                
+                return true;
+            }
+            return false;
+        },
+        
+        // 保存檔案選擇狀態到擴展
+        saveSelectionState() {
+            vscode.postMessage({
+                command: 'saveState',
+                state: {
+                    selectionState: state.selectionState,
+                    expandedFolders: state.expandedFolders
+                }
+            });
+        },
+        
+        // 儲存所有狀態
+        saveAll() {
+            this.saveUIState();
+            this.saveSelectionState();
+        },
+        
+        // 清除 UI 狀態
+        clearUIState() {
+            state.filter = '';
+            filterInput.value = '';
+            state.showSelectedOnly = false;
+            showSelectedOnlyCheckbox.checked = false;
+            this.saveUIState();
+        }
+    };
     
     // 防抖函數 - 用於搜尋輸入優化
     function debounce(func, wait) {
@@ -69,54 +124,19 @@
     function initialize() {
         setupEventListeners();
         
-        // 恢復之前的狀態
-        const previousState = vscode.getState();
+        // 設置會話 ID (如果尚未設置)
+        if (!state.sessionId) {
+            state.sessionId = Date.now().toString();
+        }
         
-        // 如果有之前的狀態，檢查會話 ID 是否相同
-        if (previousState && previousState.sessionId && previousState.sessionId === state.sessionId) {
-            // 相同會話 ID，表示只是在同一個 VSCode 工作階段中切換面板
-            // 恢復選取和展開狀態
-            if (previousState.selectionState) {
-                state.selectionState = previousState.selectionState;
-            }
-            
-            if (previousState.expandedFolders) {
-                state.expandedFolders = previousState.expandedFolders;
-            }
-            
-            // 恢復搜尋狀態
-            if (typeof previousState.filter === 'string') {
-                state.filter = previousState.filter;
-                filterInput.value = state.filter;
-            } else {
-                state.filter = '';
-                filterInput.value = '';
-            }
-            
-            if (previousState.showSelectedOnly !== undefined) {
-                state.showSelectedOnly = previousState.showSelectedOnly;
-                showSelectedOnlyCheckbox.checked = state.showSelectedOnly;
-            } else {
-                state.showSelectedOnly = false;
-                showSelectedOnlyCheckbox.checked = false;
-            }
-        } else {
-            // 不同會話 ID 或沒有之前的狀態，表示是新的 VSCode 工作階段
-            // 只恢復選取和展開狀態，清空搜尋狀態
-            if (previousState) {
-                if (previousState.selectionState) {
-                    state.selectionState = previousState.selectionState;
-                }
-                
-                if (previousState.expandedFolders) {
-                    state.expandedFolders = previousState.expandedFolders;
-                }
-            }
-            
-            // 清空搜尋狀態
+        // 使用狀態管理器載入 UI 狀態
+        const uiStateLoaded = stateManager.loadUIState();
+        
+        if (!uiStateLoaded) {
+            // 如果沒有載入到 UI 狀態，則清空
             state.filter = '';
-            state.showSelectedOnly = false;
             filterInput.value = '';
+            state.showSelectedOnly = false;
             showSelectedOnlyCheckbox.checked = false;
         }
         
@@ -127,44 +147,41 @@
         vscode.postMessage({ command: 'getFiles' });
     }
     
-    // 篩選變更處理函數
+    // 處理篩選變更
     function handleFilterChange() {
-        state.filter = filterInput.value.toLowerCase();
+        state.filter = filterInput.value;
         updateClearButtonVisibility();
         renderFileList();
         
-        // 不直接調用 vscode.setState()，而是利用 saveState() 函數
-        // 這樣只會保存選取和展開狀態，不會保存篩選條件
-        saveState();
+        // 保存 UI 狀態
+        stateManager.saveUIState();
     }
     
     // 更新清除按鈕可見性
     function updateClearButtonVisibility() {
-        if (filterInput.value.length > 0) {
-            clearFilterButton.style.display = 'block';
-        } else {
-            clearFilterButton.style.display = 'none';
-        }
+        clearFilterButton.style.display = state.filter ? 'block' : 'none';
     }
     
     // 清除篩選
     function clearFilter() {
-        filterInput.value = '';
         state.filter = '';
+        filterInput.value = '';
         updateClearButtonVisibility();
-        renderFileList();
         
-        // 同樣使用 saveState() 函數，不直接調用 vscode.setState()
-        saveState();
+        // 保存 UI 狀態
+        stateManager.saveUIState();
+        
+        // 重新渲染檔案列表
+        renderFileList();
     }
     
-    // 僅顯示已選取處理函數
+    // 處理僅顯示已選取變更
     function handleShowSelectedOnlyChange() {
         state.showSelectedOnly = showSelectedOnlyCheckbox.checked;
         renderFileList();
         
-        // 同樣使用 saveState() 函數，不直接調用 vscode.setState()
-        saveState();
+        // 保存 UI 狀態
+        stateManager.saveUIState();
     }
     
     // 複製按鈕點擊處理函數
@@ -501,13 +518,20 @@
             return true;
         }
         
-        // 檢查名稱或路徑是否包含篩選文字
-        if (item.name.toLowerCase().includes(state.filter) || 
-            item.path.toLowerCase().includes(state.filter)) {
+        const filterLower = state.filter.toLowerCase();
+        const nameLower = item.name.toLowerCase();
+        
+        // 檢查名稱是否包含篩選文字
+        if (nameLower.includes(filterLower)) {
             return true;
         }
         
-        // 對於資料夾，檢查子項目是否有匹配篩選
+        // 檢查路徑是否包含篩選文字
+        if (item.path && item.path.toLowerCase().includes(filterLower)) {
+            return true;
+        }
+        
+        // 如果是資料夾，檢查子項目是否有通過篩選的
         if ((item.type === 'folder' || item.type === 'root') && item.children) {
             for (const child of item.children) {
                 if (passesFilter(child)) {
@@ -665,27 +689,8 @@
     
     // 保存狀態
     function saveState() {
-        // 創建一個包含所有狀態的物件，包括篩選和顯示模式
-        const stateToSave = {
-            selectionState: state.selectionState,
-            expandedFolders: state.expandedFolders,
-            filter: state.filter,
-            showSelectedOnly: state.showSelectedOnly,
-            sessionId: state.sessionId // 保存會話 ID
-        };
-        
-        // 保存到 VSCode 視圖狀態，包含所有狀態
-        vscode.setState(stateToSave);
-        
-        // 但發送到擴展持久化存儲時，仍僅發送選取和展開狀態
-        vscode.postMessage({
-            command: 'saveState',
-            state: {
-                selectionState: state.selectionState,
-                expandedFolders: state.expandedFolders
-                // 不包含 filter 和 showSelectedOnly，因為這些不需要跨會話保存
-            }
-        });
+        // 使用狀態管理器保存所有狀態
+        stateManager.saveAll();
     }
     
     // 處理從擴展來的消息
@@ -702,43 +707,17 @@
                     state.sessionId = message.sessionId;
                 }
                 
-                // 只在首次載入或沒有狀態時使用保存的狀態
-                const currentState = vscode.getState();
+                // 從 savedState 中載入檔案選擇狀態和展開狀態
+                // 無論會話 ID 是否變更，這些都應該從 workspaceState 中載入
+                state.selectionState = message.savedState?.selectionState || {};
+                state.expandedFolders = message.savedState?.expandedFolders || {};
                 
-                // 檢查會話 ID 是否相同
-                const isSameSession = currentState && 
-                                     currentState.sessionId && 
-                                     currentState.sessionId === state.sessionId;
+                // 嘗試載入 UI 狀態
+                const uiStateLoaded = stateManager.loadUIState();
                 
-                if (isSameSession) {
-                    // 相同會話，恢復所有狀態
-                    if (currentState.selectionState) {
-                        state.selectionState = currentState.selectionState;
-                    }
-                    
-                    if (currentState.expandedFolders) {
-                        state.expandedFolders = currentState.expandedFolders;
-                    }
-                    
-                    if (typeof currentState.filter === 'string') {
-                        state.filter = currentState.filter;
-                        filterInput.value = state.filter;
-                    }
-                    
-                    if (currentState.showSelectedOnly !== undefined) {
-                        state.showSelectedOnly = currentState.showSelectedOnly;
-                        showSelectedOnlyCheckbox.checked = state.showSelectedOnly;
-                    }
-                } else {
-                    // 不同會話，只恢復選取和展開狀態
-                    state.selectionState = message.savedState?.selectionState || {};
-                    state.expandedFolders = message.savedState?.expandedFolders || {};
-                    
-                    // 清空搜尋狀態
-                    state.filter = '';
-                    filterInput.value = '';
-                    state.showSelectedOnly = false;
-                    showSelectedOnlyCheckbox.checked = false;
+                if (!uiStateLoaded) {
+                    // 如果沒有載入到 UI 狀態，則清空
+                    stateManager.clearUIState();
                 }
                 
                 // 重要：處理 token 限制
@@ -773,6 +752,48 @@
             case 'updateTokenLimit':
                 // 更新令牌限制並重新渲染以反映變更
                 state.tokenLimit = message.tokenLimit || 0;
+                renderFileList();
+                break;
+                
+            case 'updateSelection':
+                // 更新選擇狀態
+                state.selectionState = message.selectionState || {};
+                
+                // 如果不在篩選模式下，則需要展開對應的資料夾
+                if (!state.filter) {
+                    // 找出所有選中檔案的父資料夾路徑
+                    Object.keys(state.selectionState).forEach(filePath => {
+                        if (state.selectionState[filePath]) {
+                            const parts = filePath.split('/');
+                            let parentPath = '';
+                            for (let i = 0; i < parts.length - 1; i++) {
+                                parentPath = parentPath ? `${parentPath}/${parts[i]}` : parts[i];
+                                state.expandedFolders[parentPath] = true;
+                            }
+                        }
+                    });
+                }
+                
+                // 保存更新的狀態
+                saveState();
+                
+                // 重新渲染檔案列表
+                renderFileList();
+                break;
+                
+            case 'updateState':
+                // 更新整體狀態
+                if (message.state.selectionState) {
+                    state.selectionState = message.state.selectionState;
+                }
+                if (message.state.expandedFolders) {
+                    state.expandedFolders = message.state.expandedFolders;
+                }
+                
+                // 保存更新的狀態
+                saveState();
+                
+                // 重新渲染檔案列表
                 renderFileList();
                 break;
         }

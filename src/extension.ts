@@ -20,14 +20,15 @@ export function activate(context: vscode.ExtensionContext) {
         await copyForAI(true);
     });
     
-    // 註冊刷新檔案瀏覽器命令
-    const refreshCommand = vscode.commands.registerCommand('copy-for-ai.refreshFileExplorer', () => {
-        // 通知 ContextExplorerProvider 刷新檔案列表
-        vscode.commands.executeCommand('copy-for-ai.contextExplorer.refresh');
+    // 註冊刷新命令
+    const refreshCommand = vscode.commands.registerCommand('copy-for-ai.refresh', () => {
+        vscode.commands.executeCommand('workbench.action.reloadWindow');
     });
 
-    // 註冊 Context Explorer 視圖
+    // 創建 Context Explorer 提供者
     const contextExplorerProvider = new ContextExplorerProvider(context);
+    
+    // 註冊 Context Explorer 視圖
     const contextExplorerView = vscode.window.registerWebviewViewProvider(
         ContextExplorerProvider.viewType,
         contextExplorerProvider
@@ -46,12 +47,50 @@ export function activate(context: vscode.ExtensionContext) {
         })
     );
 
+    // 註冊添加檔案到 Context Explorer 的命令
+    const addFileToExplorerCommand = vscode.commands.registerCommand('copy-for-ai.addFileToExplorer', async (fileUri: vscode.Uri) => {
+        if (!fileUri) {
+            vscode.window.showErrorMessage('無法獲取檔案路徑');
+            return;
+        }
+        
+        await contextExplorerProvider.addFileToExplorer(fileUri.fsPath);
+    });
+
+    // 註冊添加資料夾到 Context Explorer 的命令
+    const addFolderToExplorerCommand = vscode.commands.registerCommand('copy-for-ai.addFolderToExplorer', async (folderUri: vscode.Uri) => {
+        if (!folderUri) {
+            vscode.window.showErrorMessage('無法獲取資料夾路徑');
+            return;
+        }
+        
+        await contextExplorerProvider.addFolderToExplorer(folderUri.fsPath);
+    });
+
+    // 註冊從編輯器頁籤添加檔案到 Context Explorer 的命令
+    const addEditorTabToExplorerCommand = vscode.commands.registerCommand('copy-for-ai.addEditorTabToExplorer', async (fileUri: vscode.Uri) => {
+        if (!fileUri) {
+            // 如果沒有直接傳入 URI，則使用當前編輯器的文件
+            const editor = vscode.window.activeTextEditor;
+            if (!editor) {
+                vscode.window.showErrorMessage('無法獲取當前編輯器中的檔案');
+                return;
+            }
+            fileUri = editor.document.uri;
+        }
+        
+        await contextExplorerProvider.addFileToExplorer(fileUri.fsPath);
+    });
+
     context.subscriptions.push(
         basicCopyCommand, 
         contextCopyCommand, 
         refreshCommand,
         contextExplorerView,
-        openSettingsCommand
+        openSettingsCommand,
+        addFileToExplorerCommand,
+        addFolderToExplorerCommand,
+        addEditorTabToExplorerCommand
     );
     
     // 註冊檔案關聯擴展
