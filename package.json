@@ -49,6 +49,21 @@
         "command": "copy-for-ai.openSettings",
         "title": "設定",
         "icon": "$(gear)"
+      },
+      {
+        "command": "copy-for-ai.addFileToExplorer",
+        "title": "Add to Copy For AI Explorer",
+        "category": "Copy For AI"
+      },
+      {
+        "command": "copy-for-ai.addFolderToExplorer",
+        "title": "Add Folder to Copy For AI Explorer",
+        "category": "Copy For AI"
+      },
+      {
+        "command": "copy-for-ai.addEditorTabToExplorer",
+        "title": "Add to Copy For AI Explorer",
+        "category": "Copy For AI"
       }
     ],
     "menus": {
@@ -57,6 +72,24 @@
             "command": "copy-for-ai.openSettings",
             "when": "view == copy-for-ai.contextExplorer",
             "group": "navigation"
+        }
+      ],
+      "explorer/context": [
+        {
+          "command": "copy-for-ai.addFileToExplorer",
+          "when": "!explorerResourceIsFolder",
+          "group": "copy"
+        },
+        {
+          "command": "copy-for-ai.addFolderToExplorer",
+          "when": "explorerResourceIsFolder",
+          "group": "copy"
+        }
+      ],
+      "editor/title/context": [
+        {
+          "command": "copy-for-ai.addEditorTabToExplorer",
+          "group": "copy"
         }
       ],
       "editor/context": [

@@ -75,16 +75,7 @@
         // 如果有之前的狀態，檢查會話 ID 是否相同
         if (previousState && previousState.sessionId && previousState.sessionId === state.sessionId) {
             // 相同會話 ID，表示只是在同一個 VSCode 工作階段中切換面板
-            // 恢復選取和展開狀態
-            if (previousState.selectionState) {
-                state.selectionState = previousState.selectionState;
-            }
-            
-            if (previousState.expandedFolders) {
-                state.expandedFolders = previousState.expandedFolders;
-            }
-            
-            // 恢復搜尋狀態
+            // 僅恢復 UI 相關的狀態（搜尋和顯示偏好），不恢復檔案選擇狀態
             if (typeof previousState.filter === 'string') {
                 state.filter = previousState.filter;
                 filterInput.value = state.filter;
@@ -102,18 +93,7 @@
             }
         } else {
             // 不同會話 ID 或沒有之前的狀態，表示是新的 VSCode 工作階段
-            // 只恢復選取和展開狀態，清空搜尋狀態
-            if (previousState) {
-                if (previousState.selectionState) {
-                    state.selectionState = previousState.selectionState;
-                }
-                
-                if (previousState.expandedFolders) {
-                    state.expandedFolders = previousState.expandedFolders;
-                }
-            }
-            
-            // 清空搜尋狀態
+            // 清空搜尋和顯示偏好
             state.filter = '';
             state.showSelectedOnly = false;
             filterInput.value = '';
@@ -667,23 +647,21 @@
     function saveState() {
         // 創建一個包含所有狀態的物件，包括篩選和顯示模式
         const stateToSave = {
-            selectionState: state.selectionState,
-            expandedFolders: state.expandedFolders,
+            // 這些狀態只保存在 WebView 中，不跨會話保存
             filter: state.filter,
             showSelectedOnly: state.showSelectedOnly,
             sessionId: state.sessionId // 保存會話 ID
         };
         
-        // 保存到 VSCode 視圖狀態，包含所有狀態
+        // 保存到 VSCode 視圖狀態
         vscode.setState(stateToSave);
         
-        // 但發送到擴展持久化存儲時，仍僅發送選取和展開狀態
+        // 發送到擴展持久化存儲，保存選取和展開狀態
         vscode.postMessage({
             command: 'saveState',
             state: {
                 selectionState: state.selectionState,
                 expandedFolders: state.expandedFolders
-                // 不包含 filter 和 showSelectedOnly，因為這些不需要跨會話保存
             }
         });
     }
@@ -710,16 +688,13 @@
                                      currentState.sessionId && 
                                      currentState.sessionId === state.sessionId;
                 
+                // 從 savedState 中載入檔案選擇狀態和展開狀態
+                // 無論會話 ID 是否變更，這些都應該從 workspaceState 中載入
+                state.selectionState = message.savedState?.selectionState || {};
+                state.expandedFolders = message.savedState?.expandedFolders || {};
+                
                 if (isSameSession) {
-                    // 相同會話，恢復所有狀態
-                    if (currentState.selectionState) {
-                        state.selectionState = currentState.selectionState;
-                    }
-                    
-                    if (currentState.expandedFolders) {
-                        state.expandedFolders = currentState.expandedFolders;
-                    }
-                    
+                    // 相同會話，只恢復 UI 相關的狀態（搜尋和顯示偏好）
                     if (typeof currentState.filter === 'string') {
                         state.filter = currentState.filter;
                         filterInput.value = state.filter;
@@ -730,11 +705,7 @@
                         showSelectedOnlyCheckbox.checked = state.showSelectedOnly;
                     }
                 } else {
-                    // 不同會話，只恢復選取和展開狀態
-                    state.selectionState = message.savedState?.selectionState || {};
-                    state.expandedFolders = message.savedState?.expandedFolders || {};
-                    
-                    // 清空搜尋狀態
+                    // 不同會話，清空搜尋狀態
                     state.filter = '';
                     filterInput.value = '';
                     state.showSelectedOnly = false;
@@ -773,6 +744,63 @@
             case 'updateTokenLimit':
                 // 更新令牌限制並重新渲染以反映變更
                 state.tokenLimit = message.tokenLimit || 0;
+                renderFileList();
+                break;
+                
+            case 'updateSelection':
+                // 更新選擇狀態
+                state.selectionState = message.selectionState || {};
+                
+                // 如果不在篩選模式下，則需要展開對應的資料夾
+                if (!state.filter) {
+                    // 找出所有選中檔案的父資料夾路徑
+                    Object.keys(state.selectionState).forEach(filePath => {
+                        if (state.selectionState[filePath]) {
+                            const parts = filePath.split('/');
+                            let parentPath = '';
+                            for (let i = 0; i < parts.length - 1; i++) {
+                                parentPath = parentPath ? `${parentPath}/${parts[i]}` : parts[i];
+                                state.expandedFolders[parentPath] = true;
+                            }
+                        }
+                    });
+                }
+                
+                // 保存更新的狀態
+                saveState();
+                
+                // 重新渲染檔案列表
+                renderFileList();
+                break;
+                
+            case 'updateState':
+                // 更新整體狀態
+                if (message.state.selectionState) {
+                    state.selectionState = message.state.selectionState;
+                }
+                if (message.state.expandedFolders) {
+                    state.expandedFolders = message.state.expandedFolders;
+                }
+                
+                // 如果不在篩選模式下，則需要展開對應的資料夾
+                if (!state.filter) {
+                    // 找出所有選中檔案的父資料夾路徑
+                    Object.keys(state.selectionState).forEach(filePath => {
+                        if (state.selectionState[filePath]) {
+                            const parts = filePath.split('/');
+                            let parentPath = '';
+                            for (let i = 0; i < parts.length - 1; i++) {
+                                parentPath = parentPath ? `${parentPath}/${parts[i]}` : parts[i];
+                                state.expandedFolders[parentPath] = true;
+                            }
+                        }
+                    });
+                }
+                
+                // 保存更新的狀態
+                saveState();
+                
+                // 重新渲染檔案列表
                 renderFileList();
                 break;
         }

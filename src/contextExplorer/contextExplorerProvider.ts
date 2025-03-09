@@ -266,10 +266,10 @@ export class ContextExplorerProvider implements vscode.WebviewViewProvider {
             const workspaceFiles = await this._fileTreeService.getWorkspaceFiles();
             this._log(`已載入 ${workspaceFiles.length} 個頂層項目`);
             
-            // 獲取先前保存的選取狀態 - 只保存選取和展開狀態，不包含篩選狀態
+            // 獲取先前保存的選取狀態 - 從 workspaceState 中讀取最新的選擇狀態
             const savedState = this._context.workspaceState.get('contextExplorer.state', {
-                selectionState: {},
-                expandedFolders: {}
+                selectionState: {} as Record<string, boolean>,
+                expandedFolders: {} as Record<string, boolean>
             });
             
             // 獲取設定值
@@ -283,10 +283,9 @@ export class ContextExplorerProvider implements vscode.WebviewViewProvider {
                 savedState: {
                     selectionState: savedState.selectionState || {},
                     expandedFolders: savedState.expandedFolders || {}
-                    // 不包含 filter 和 showSelectedOnly 
                 },
                 tokenLimit: tokenLimit,
-                sessionId: this._sessionId // 傳遞會話 ID
+                sessionId: this._sessionId
             });
             
             this._log('WebView 初始化完成');
@@ -496,5 +495,138 @@ export class ContextExplorerProvider implements vscode.WebviewViewProvider {
             text += possible.charAt(Math.floor(Math.random() * possible.length));
         }
         return text;
+    }
+
+    /**
+     * 添加檔案到 Context Explorer 選擇列表
+     * @param filePath 檔案路徑
+     */
+    public async addFileToExplorer(filePath: string): Promise<void> {
+        try {
+            // 獲取當前已保存的狀態
+            const savedState = this._context.workspaceState.get('contextExplorer.state', {
+                selectionState: {} as Record<string, boolean>,
+                expandedFolders: {} as Record<string, boolean>
+            });
+            
+            // 將檔案標記為已選擇
+            const relativePath = vscode.workspace.asRelativePath(filePath);
+            const selectionState: Record<string, boolean> = { ...savedState.selectionState };
+            selectionState[relativePath] = true;
+            
+            // 自動展開父資料夾路徑
+            const expandedFolders: Record<string, boolean> = { ...savedState.expandedFolders };
+            const parts = relativePath.split(/[\/\\]/); // 處理 Windows 和 Unix 路徑分隔符
+            let parentPath = '';
+            
+            for (let i = 0; i < parts.length - 1; i++) {
+                parentPath = parentPath ? `${parentPath}/${parts[i]}` : parts[i];
+                expandedFolders[parentPath] = true;
+            }
+            
+            // 更新狀態
+            const newState = {
+                selectionState,
+                expandedFolders
+            };
+            
+            // 保存狀態到工作區
+            this._context.workspaceState.update('contextExplorer.state', newState);
+            
+            // 如果 WebView 已經啟動，則發送消息更新 UI
+            if (this._view) {
+                this._view.webview.postMessage({
+                    command: 'updateState',
+                    state: newState
+                });
+            }
+            
+            this._log(`已添加檔案到選擇列表: ${relativePath}`);
+            vscode.window.showInformationMessage(`已添加 ${path.basename(filePath)} 到 Copy For AI Explorer`);
+        } catch (error) {
+            this._logError('添加檔案到選擇列表失敗', error);
+            vscode.window.showErrorMessage(`添加檔案失敗: ${error instanceof Error ? error.message : String(error)}`);
+        }
+    }
+
+    /**
+     * 添加資料夾下所有檔案到 Context Explorer 選擇列表
+     * @param folderPath 資料夾路徑
+     */
+    public async addFolderToExplorer(folderPath: string): Promise<void> {
+        try {
+            // 顯示進度指示
+            await vscode.window.withProgress({
+                location: vscode.ProgressLocation.Notification,
+                title: "正在添加資料夾中的檔案...",
+                cancellable: false
+            }, async (progress) => {
+                // 確保 FileTreeService 已初始化
+                if (!this._fileTreeService) {
+                    this._logError('FileTreeService 未初始化');
+                    return;
+                }
+                
+                // 獲取資料夾下所有檔案
+                const folderUri = vscode.Uri.file(folderPath);
+                const folderPattern = new vscode.RelativePattern(folderUri, '**/*');
+                const files = await vscode.workspace.findFiles(folderPattern);
+                
+                // 過濾並只保留文字檔案
+                const textFiles = files.filter(file => this._fileTreeService.isTextFile(file.fsPath));
+                
+                // 獲取當前已保存的狀態
+                const savedState = this._context.workspaceState.get('contextExplorer.state', {
+                    selectionState: {} as Record<string, boolean>,
+                    expandedFolders: {} as Record<string, boolean>
+                });
+                
+                // 更新選擇狀態
+                const selectionState: Record<string, boolean> = { ...savedState.selectionState };
+                
+                // 將所有檔案標記為已選擇
+                for (let i = 0; i < textFiles.length; i++) {
+                    const file = textFiles[i];
+                    const relativePath = vscode.workspace.asRelativePath(file);
+                    selectionState[relativePath] = true;
+                    
+                    // 更新進度
+                    progress.report({ 
+                        message: `(${i+1}/${textFiles.length}) ${path.basename(file.fsPath)}`,
+                        increment: 100 / textFiles.length
+                    });
+                }
+                
+                // 將資料夾路徑展開
+                const expandedFolders: Record<string, boolean> = { ...savedState.expandedFolders };
+                
+                // 將資料夾標記為已展開
+                const relativeFolder = vscode.workspace.asRelativePath(folderPath);
+                expandedFolders[relativeFolder] = true;
+                
+                // 更新狀態
+                const newState = {
+                    selectionState,
+                    expandedFolders
+                };
+                
+                // 保存狀態到工作區
+                this._context.workspaceState.update('contextExplorer.state', newState);
+                
+                // 如果 WebView 已經啟動，則發送消息更新 UI
+                if (this._view) {
+                    this._view.webview.postMessage({
+                        command: 'updateState',
+                        state: newState
+                    });
+                }
+                
+                this._log(`已添加資料夾 ${relativeFolder} 下的 ${textFiles.length} 個檔案到選擇列表`);
+                vscode.window.showInformationMessage(`已添加 ${path.basename(folderPath)} 資料夾下的 ${textFiles.length} 個檔案到 Copy For AI Explorer`);
+            });
+        } catch (error) {
+            this._logError('添加資料夾到選擇列表失敗', error);
+            vscode.window.showErrorMessage(`添加資料夾失敗: ${error instanceof Error ? error.message : String(error)}`);
+        }
     }
 }

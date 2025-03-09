@@ -189,6 +189,13 @@ export class FileTreeService {
     }
     
     /**
+     * 檢查是否為文字檔案 (公開方法)
+     */
+    public isTextFile(filePath: string): boolean {
+        return this._isTextFile(filePath);
+    }
+    
+    /**
      * 將檔案轉換為樹狀結構
      */
     private _filesToTree(files: vscode.Uri[], rootUri: vscode.Uri): TreeNode[] {
@@ -298,7 +305,7 @@ export class FileTreeService {
             result.push(...rootFiles);
         }
         
-        // 計算每個資料夾的 tokens
+        // 計算每個資料夾的 tokens 總和
         for (const [folderPath, folder] of Object.entries(folderMap)) {
             if (folder.node.children && folder.node.children.length > 0) {
                 folder.node.estimatedTokens = this._calculateFolderTokens(folder.node.children);
