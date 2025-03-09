@@ -22,35 +22,9 @@ export interface TreeNode {
  */
 export class FileTreeService {
     private _outputChannel: vscode.OutputChannel;
-    private _ignoreFilter: ignore.Ignore | null = null;
-    private _excludePatterns: string[] = [];
     
     constructor(outputChannel: vscode.OutputChannel) {
         this._outputChannel = outputChannel;
-        this._initializeFilters();
-    }
-    
-    /**
-     * 初始化過濾器
-     */
-    private async _initializeFilters(): Promise<void> {
-        const workspaceFolders = vscode.workspace.workspaceFolders;
-        if (!workspaceFolders) {
-            return;
-        }
-        
-        // 獲取設定
-        const config = vscode.workspace.getConfiguration('copyForAI');
-        this._excludePatterns = config.get<string[]>('contextExplorer.excludePatterns', 
-            ['**/node_modules/**', '**/.git/**', '**/dist/**', '**/build/**', '**/bin/**']);
-        const followGitignore = config.get<boolean>('contextExplorer.followGitignore', true);
-        
-        const workspacePath = workspaceFolders[0].uri.fsPath;
-        
-        // 載入 .gitignore 過濾器 (如果啟用了該選項)
-        if (followGitignore) {
-            this._ignoreFilter = await this._loadGitignoreFilter(workspacePath);
-        }
     }
     
     /**
@@ -91,8 +65,24 @@ export class FileTreeService {
             return [];
         }
 
+        // 獲取設定
+        const config = vscode.workspace.getConfiguration('copyForAI');
+        const excludePatterns = config.get<string[]>('contextExplorer.excludePatterns', 
+            ['**/node_modules/**', '**/.git/**', '**/dist/**', '**/build/**', '**/bin/**']);
+        const followGitignore = config.get<boolean>('contextExplorer.followGitignore', true);
+        
+        const workspacePath = workspaceFolders[0].uri.fsPath;
+        
+        // 載入 .gitignore 過濾器 (如果啟用了該選項)
+        let ignoreFilter: ignore.Ignore | null = null;
+        if (followGitignore) {
+            ignoreFilter = await this._loadGitignoreFilter(workspacePath);
+        }
+        
         // 組合排除模式 (用於 vscode.workspace.findFiles)
-        const excludePattern = this._excludePatterns.length > 0 ? `{${this._excludePatterns.join(',')}}` : '';
+        const allExcludePatterns = [...excludePatterns];
+        
+        const excludePattern = allExcludePatterns.length > 0 ? `{${allExcludePatterns.join(',')}}` : '';
         
         try {
             // 獲取所有檔案
@@ -101,9 +91,9 @@ export class FileTreeService {
             this._log(`找到 ${files.length} 個檔案（排除模式: ${excludePattern || '無'}）`);
             
             // 使用 .gitignore 過濾檔案 (如果啟用了該選項)
-            if (this._ignoreFilter) {
+            if (followGitignore && ignoreFilter) {
                 const beforeCount = files.length;
-                files = this._filterFilesByGitignore(files, workspaceFolders[0].uri.fsPath, this._ignoreFilter);
+                files = this._filterFilesByGitignore(files, workspacePath, ignoreFilter);
                 this._log(`應用 .gitignore 過濾後剩餘 ${files.length} 個檔案 (排除了 ${beforeCount - files.length} 個檔案)`);
             }
             
@@ -179,43 +169,6 @@ export class FileTreeService {
             
             return !shouldIgnore;
         });
-    }
-    
-    /**
-     * 檢查檔案路徑是否應被排除
-     * 用於處理資料夾選取時的檔案過濾
-     */
-    public shouldExcludeFile(filePath: string): boolean {
-        const workspaceFolders = vscode.workspace.workspaceFolders;
-        if (!workspaceFolders) {
-            return false;
-        }
-        
-        const workspacePath = workspaceFolders[0].uri.fsPath;
-        const relativePath = path.relative(workspacePath, filePath).replace(/\\/g, '/');
-        
-        // 檢查排除模式
-        for (const pattern of this._excludePatterns) {
-            // 簡單的通配符檢查邏輯，這裡可以根據需要擴展
-            if (pattern.includes('**/')) {
-                const part = pattern.replace(/\*\*\//g, '').replace(/\/\*\*/g, '');
-                if (relativePath.includes(part)) {
-                    return true;
-                }
-            } else if (pattern.endsWith('/**')) {
-                const part = pattern.replace(/\/\*\*$/g, '');
-                if (relativePath.startsWith(part)) {
-                    return true;
-                }
-            }
-        }
-        
-        // 檢查 gitignore
-        if (this._ignoreFilter) {
-            return this._ignoreFilter.ignores(relativePath);
-        }
-        
-        return false;
     }
     
     /**
@@ -459,57 +412,6 @@ export class FileTreeService {
         } catch (error) {
             this._logError(`讀取檔案 ${filePath} 時出錯`, error);
             return null;
-        }
-    }
-    
-    /**
-     * 獲取資料夾下所有符合條件的檔案路徑
-     * @param dirPath 資料夾路徑
-     * @returns 檔案路徑數組
-     */
-    public getFilesInDirectory(dirPath: string): string[] {
-        try {
-            if (!fs.existsSync(dirPath) || !fs.statSync(dirPath).isDirectory()) {
-                this._logError(`不是有效的資料夾: ${dirPath}`);
-                return [];
-            }
-            
-            const result: string[] = [];
-            this._getFilesRecursively(dirPath, result);
-            return result;
-        } catch (error) {
-            this._logError(`獲取資料夾檔案時出錯: ${dirPath}`, error);
-            return [];
-        }
-    }
-    
-    /**
-     * 遞迴獲取資料夾中的所有檔案
-     */
-    private _getFilesRecursively(dirPath: string, result: string[]): void {
-        // 檢查資料夾是否應該被排除
-        if (this.shouldExcludeFile(dirPath)) {
-            return;
-        }
-        
-        try {
-            const entries = fs.readdirSync(dirPath, { withFileTypes: true });
-            
-            for (const entry of entries) {
-                const fullPath = path.join(dirPath, entry.name);
-                
-                // 如果是資料夾，遞迴處理
-                if (entry.isDirectory()) {
-                    this._getFilesRecursively(fullPath, result);
-                } else if (entry.isFile()) {
-                    // 檢查檔案是否符合條件
-                    if (!this.shouldExcludeFile(fullPath) && this._isTextFile(fullPath)) {
-                        result.push(fullPath);
-                    }
-                }
-            }
-        } catch (error) {
-            this._logError(`讀取資料夾內容出錯: ${dirPath}`, error);
         }
     }
 }

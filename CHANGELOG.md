@@ -4,12 +4,6 @@ All notable changes to the "copy-for-ai" extension will be documented in this fi
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
-## [0.2.0] - 2025-03-10
-
-### 新增
-- 新增 VSCode 檔案瀏覽器整合，支援從檔案瀏覽器右鍵選單添加檔案
-- 新增編輯器分頁右鍵選單支援，可直接從編輯中的檔案添加到選取清單
-
 ## [0.1.1] - 2025-03-03
 
 ### 修正

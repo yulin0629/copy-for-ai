@@ -1,5 +1,4 @@
 import * as vscode from 'vscode';
-import * as path from 'path'; // 新增引入 path 模組
 import { processCode, removeComments } from './codeAnalyzer';
 import { formatOutput } from './formatter';
 import { ContextExplorerProvider } from './contextExplorer/contextExplorerProvider';
@@ -47,51 +46,12 @@ export function activate(context: vscode.ExtensionContext) {
         })
     );
 
-    // 註冊從檔案瀏覽器添加檔案到 Context Explorer 的命令
-    const addToContextExplorerCommand = vscode.commands.registerCommand(
-        'copy-for-ai.addToContextExplorer', 
-        async (resource, selectedResources) => {
-            // 處理檔案瀏覽器中的選取
-            const filesToAdd = [];
-            
-            if (selectedResources && selectedResources.length > 0) {
-                // 多選情況
-                filesToAdd.push(...selectedResources.map((res: vscode.Uri) => res.fsPath));
-            } else if (resource instanceof vscode.Uri) {
-                // 單選情況
-                filesToAdd.push(resource.fsPath);
-            }
-            
-            if (filesToAdd.length > 0) {
-                // 發送到 Context Explorer 進行選取
-                await contextExplorerProvider.addFilesToSelection(filesToAdd);
-                vscode.window.showInformationMessage(`已添加 ${filesToAdd.length} 個檔案到 Copy For AI`);
-            }
-        }
-    );
-
-    // 註冊從編輯器分頁添加當前檔案到 Context Explorer 的命令
-    const addCurrentFileCommand = vscode.commands.registerCommand(
-        'copy-for-ai.addCurrentFileToContextExplorer', 
-        async () => {
-            // 處理編輯器分頁中的選取
-            const editor = vscode.window.activeTextEditor;
-            if (editor) {
-                const filePath = editor.document.uri.fsPath;
-                await contextExplorerProvider.addFilesToSelection([filePath]);
-                vscode.window.showInformationMessage(`已添加 ${path.basename(filePath)} 到 Copy For AI`);
-            }
-        }
-    );
-
     context.subscriptions.push(
         basicCopyCommand, 
         contextCopyCommand, 
         refreshCommand,
         contextExplorerView,
-        openSettingsCommand,
-        addToContextExplorerCommand,
-        addCurrentFileCommand
+        openSettingsCommand
     );
     
     // 註冊檔案關聯擴展
