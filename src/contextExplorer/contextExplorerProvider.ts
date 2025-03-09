@@ -309,7 +309,7 @@ export class ContextExplorerProvider implements vscode.WebviewViewProvider {
                     this._log('已儲存 WebView 狀態');
                     break;
                     
-                case 'copySelectedFiles':
+                case 'copyToClipboard':
                     // 複製選中的檔案
                     await this._copySelectedFilesToClipboard(message.selectedFiles);
                     break;

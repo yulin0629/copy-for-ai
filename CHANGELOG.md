@@ -4,6 +4,11 @@ All notable changes to the "copy-for-ai" extension will be documented in this fi
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## [0.1.3] - 2025-03-09
+
+### 新增
+- 修正 Context Explorer 按鈕點擊無反應問題
+
 ## [0.1.2] - 2025-03-09
 
 ### 新增
