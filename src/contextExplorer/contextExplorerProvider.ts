@@ -13,7 +13,8 @@ export class ContextExplorerProvider implements vscode.WebviewViewProvider {
     private _view?: vscode.WebviewView;
     private _extensionUri: vscode.Uri;
     private _context: vscode.ExtensionContext;
-    private _fileSystemWatcher?: vscode.FileSystemWatcher;
+    private _fileSystemWatcher: vscode.FileSystemWatcher | undefined;
+    private _watcherListeners: vscode.Disposable[] = [];
     private _outputChannel: vscode.OutputChannel;
     private _fileTreeService: FileTreeService;
     private _sessionId: string;
@@ -28,7 +29,6 @@ export class ContextExplorerProvider implements vscode.WebviewViewProvider {
         this._fileTreeService = new FileTreeService(this._outputChannel);
         // 初始化狀態管理器
         this._stateManager = new StateManager(context);
-        this._setupFileWatcher();
         this._log('Context Explorer 已初始化');
         
         // 生成新的會話 ID
@@ -41,6 +41,10 @@ export class ContextExplorerProvider implements vscode.WebviewViewProvider {
                 this._updateTokenLimit();
             }
         }, null, this._context.subscriptions);
+
+        // *** 新增：確保在擴充功能停用時清理監聽器 ***
+        context.subscriptions.push(vscode.Disposable.from(...this._watcherListeners));
+        context.subscriptions.push({ dispose: () => this._stopWatching() }); // 確保停止監聽
     }
 
     /**
@@ -100,45 +104,61 @@ export class ContextExplorerProvider implements vscode.WebviewViewProvider {
                 this._outputChannel.appendLine(`詳細資訊: ${String(error)}`);
             }
         }
-        // 自動顯示輸出頻道
-        this._outputChannel.show(true);
+
     }
 
     /**
-     * 設置檔案系統監視器
+     * 創建檔案監聽器的方法
      */
-    private _setupFileWatcher(): void {
+    private _ensureFileWatcher(): void {
+        if (this._fileSystemWatcher) {
+            return; // 已經創建
+        }
         const workspaceFolders = vscode.workspace.workspaceFolders;
         if (!workspaceFolders) {
             this._log('無工作區資料夾，檔案監視器未啟動');
             return;
         }
-
-        // 監視檔案變化
         const filePattern = new vscode.RelativePattern(workspaceFolders[0], '**/*');
         this._fileSystemWatcher = vscode.workspace.createFileSystemWatcher(filePattern);
+        // 將 watcher 本身加入 subscriptions，以便 VS Code 自動管理其生命週期
+        this._context.subscriptions.push(this._fileSystemWatcher);
+        this._log('檔案監視器已創建');
+    }
 
-        // 檔案新增時更新視圖
-        this._fileSystemWatcher.onDidCreate(() => {
+    /**
+     * 啟動檔案系統監聽
+     */
+    private _startWatching(): void {
+        this._ensureFileWatcher(); // 確保 watcher 已創建
+        if (!this._fileSystemWatcher || this._watcherListeners.length > 0) {
+            // 如果沒有 watcher 或已經在監聽，則不執行
+            return;
+        }
+
+        this._watcherListeners.push(this._fileSystemWatcher.onDidCreate(() => {
             this._log('檔案系統變化: 新檔案創建');
             this._refreshFiles();
-        });
-
-        // 檔案更改時更新視圖
-        this._fileSystemWatcher.onDidChange(() => {
+        }));
+        this._watcherListeners.push(this._fileSystemWatcher.onDidChange(() => {
             this._log('檔案系統變化: 檔案內容更新');
             this._refreshFiles();
-        });
-
-        // 檔案刪除時更新視圖
-        this._fileSystemWatcher.onDidDelete(() => {
+        }));
+        this._watcherListeners.push(this._fileSystemWatcher.onDidDelete(() => {
             this._log('檔案系統變化: 檔案刪除');
             this._refreshFiles();
-        });
+        }));
 
-        // 將監視器添加到訂閱清單，以便在擴展停用時正確處理
-        this._context.subscriptions.push(this._fileSystemWatcher);
-        this._log('檔案監視器已啟動');
+        this._log('檔案監聽器已啟動');
+    }
+
+    /**
+     * 停止檔案系統監聽的方法
+     */
+    private _stopWatching(): void {
+        this._log('停止檔案監聽器...');
+        this._watcherListeners.forEach(listener => listener.dispose());
+        this._watcherListeners = [];
     }
 
     /**
@@ -168,14 +188,19 @@ export class ContextExplorerProvider implements vscode.WebviewViewProvider {
             this._context.subscriptions
         );
 
-        // 初始化 WebView
-        this._initializeWebView();
+        // *** 修改：只有在視圖可見時才初始化和啟動監聽 ***
+        if (webviewView.visible) {
+            this._initializeWebView();
+            this._startWatching();
+        }
 
         // 視圖可見性變更時保留狀態
         webviewView.onDidChangeVisibility(() => {
             if (webviewView.visible) {
-                this._log('WebView 變為可見，恢復狀態');
                 this._initializeWebView();
+                this._startWatching();
+            } else {
+                this._stopWatching();
             }
         });
     }

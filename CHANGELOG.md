@@ -4,6 +4,18 @@ All notable changes to the "copy-for-ai" extension will be documented in this fi
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## [0.1.4] - 2025-03-10
+
+### 新增
+- 在 Context Explorer 中支援 Shift + Click 範圍選取檔案功能，可一次選取多個連續檔案，提升工作效率。
+- 為檔案項目新增滑鼠懸停效果，提升使用者體驗。
+- 支援點擊檔案列表整列來切換選取狀態，操作更為直覺。
+
+### 改進
+- 優化 Context Explorer 檔案監聽機制，僅在視圖可見時監聽檔案變更，減少資源消耗並改善潛在的列表排序問題。
+- 重構檔案項目點擊處理邏輯，支援點擊整列選取/取消選取，更符合直覺操作。
+- 改善檔案系統監視器的記憶體管理，正確釋放不再需要的資源。
+
 ## [0.1.3] - 2025-03-09
 
 ### 新增

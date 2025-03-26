@@ -290,3 +290,8 @@ export function activate(context: vscode.ExtensionContext) {
 - [x] 錯誤訊息在 WebView 中正確顯示
 - [x] 複製操作失敗時提供明確的錯誤提示
 - [x] 檔案路徑處理正確，避免相對路徑錯誤
+
+- [x] 當 Context Explorer 不在前景時，不要一直 watch 檔案系統的更新
+- [x] Context Explorer 會莫名的一直重新排序檔案的順序，很擾人
+- [x] 要能用 Shift 的 key，搭配 mouse click 一次勾選多個檔案
+- [x] Context Explorer 勾選整列即可，不需要點擊 checkbox

@@ -3,6 +3,10 @@
     // 獲取 VS Code API
     const vscode = acquireVsCodeApi();
     
+    // *** 新增：用於 Shift 選取的變數 ***
+    let lastClickedItemPath = null;
+    let itemMap = {}; // 用於快速查找 item 物件
+    
     // 初始化狀態
     const state = {
         files: [],
@@ -262,6 +266,21 @@
         }, 5000);
     }
     
+    // *** 新增：建立路徑到 item 物件的映射 ***
+    function buildItemMap(items) {
+        const map = {};
+        function traverse(currentItems) {
+            for (const item of currentItems) {
+                map[item.path] = item;
+                if ((item.type === 'folder' || item.type === 'root') && item.children) {
+                    traverse(item.children);
+                }
+            }
+        }
+        traverse(items);
+        return map;
+    }
+    
     // 渲染檔案列表
     function renderFileList() {
         // 清空檔案列表
@@ -278,6 +297,8 @@
             // 渲染根層級的檔案和資料夾
             for (const item of state.files) {
                 renderFileItem(item, 0);
+                // *** 新增：渲染後建立 itemMap ***
+                itemMap = buildItemMap(state.files);
             }
         }
         
@@ -346,6 +367,7 @@
     function renderSearchResultItem(item, displayPath) {
         const itemElement = document.createElement('div');
         itemElement.className = 'file-item search-result';
+        itemElement.dataset.path = item.path;
         
         // 創建勾選框
         const checkbox = document.createElement('input');
@@ -362,9 +384,20 @@
             checkbox.indeterminate = folderState === 'partial';
         }
         
-        // 勾選事件
-        checkbox.addEventListener('change', () => {
-            handleItemSelection(item, checkbox.checked);
+        // 點擊整列事件
+        itemElement.addEventListener('click', (event) => {
+            // 如果點擊的是展開/收合圖示，不做任何事
+            if (event.target.classList.contains('expand-icon')) {
+                return;
+            }
+
+            // 如果點擊的不是勾選框本身，就切換勾選框狀態
+            if (!event.target.classList.contains('file-checkbox')) {
+                checkbox.checked = !checkbox.checked;
+            }
+
+            // 呼叫勾選處理函數
+            handleCheckboxClick(event, item, checkbox);
         });
         
         itemElement.appendChild(checkbox);
@@ -422,6 +455,7 @@
         // 創建檔案項目元素
         const itemElement = document.createElement('div');
         itemElement.className = 'file-item';
+        itemElement.dataset.path = item.path; // *** 新增：添加 data-path 屬性 ***
         itemElement.style.paddingLeft = `${level * 20}px`;
         
         // 創建勾選框
@@ -439,11 +473,22 @@
             checkbox.indeterminate = folderState === 'partial';
         }
         
-        // 勾選事件
-        checkbox.addEventListener('change', () => {
-            handleItemSelection(item, checkbox.checked);
+        // 點擊整列事件
+        itemElement.addEventListener('click', (event) => {
+            // 如果點擊的是展開/收合圖示，不做任何事
+            if (event.target.classList.contains('expand-icon')) {
+                return;
+            }
+
+            // 如果點擊的不是勾選框本身，就切換勾選框狀態
+            if (!event.target.classList.contains('file-checkbox')) {
+                checkbox.checked = !checkbox.checked;
+            }
+
+            // 呼叫勾選處理函數
+            handleCheckboxClick(event, item, checkbox);
         });
-        
+
         itemElement.appendChild(checkbox);
         
         // 展開/摺疊圖示 (僅用於資料夾)
@@ -598,21 +643,72 @@
         }
     }
     
+    // *** 新增：處理勾選框點擊事件（包含 Shift 邏輯） ***
+    function handleCheckboxClick(event, item, checkbox) {
+        const currentPath = item.path;
+        const isSelected = checkbox.checked; // 點擊後的新狀態
+
+        if (event.shiftKey && lastClickedItemPath && lastClickedItemPath !== currentPath) {
+            event.preventDefault(); // 防止瀏覽器預設的文字選取
+
+            const allVisibleItemElements = Array.from(fileListElement.querySelectorAll('.file-item'));
+            const visiblePaths = allVisibleItemElements.map(el => el.dataset.path);
+
+            const lastIndex = visiblePaths.indexOf(lastClickedItemPath);
+            const currentIndex = visiblePaths.indexOf(currentPath);
+
+            if (lastIndex !== -1 && currentIndex !== -1) {
+                const start = Math.min(lastIndex, currentIndex);
+                const end = Math.max(lastIndex, currentIndex);
+                const targetState = isSelected; // 以當前點擊項的狀態為準
+
+                // 批量更新狀態
+                for (let i = start; i <= end; i++) {
+                    const pathInRange = visiblePaths[i];
+                    const itemInRange = itemMap[pathInRange];
+                    if (itemInRange) {
+                        // 直接修改 state.selectionState，避免重複渲染
+                        if (itemInRange.type === 'file') {
+                            state.selectionState[pathInRange] = targetState;
+                        } else if ((itemInRange.type === 'folder' || itemInRange.type === 'root') && itemInRange.children) {
+                            selectAllChildren(itemInRange, targetState); // 更新子項狀態
+                        }
+                    }
+                }
+
+                // 狀態更新完畢後，保存並重新渲染一次
+                saveState();
+                renderFileList();
+            } else {
+                // 如果找不到上次點擊的項目（可能被過濾掉了），則按普通點擊處理
+                handleItemSelection(item, isSelected);
+            }
+        } else {
+            // 普通點擊
+            handleItemSelection(item, isSelected);
+        }
+        // 更新上次點擊的項目（無論是否按住 Shift）
+        lastClickedItemPath = currentPath;
+    }
+    
     // 處理項目選取
-    function handleItemSelection(item, isSelected) {
+    function handleItemSelection(item, isSelected, skipRender = false) {
         if (item.type === 'file') {
             // 單個檔案選取/取消選取
             state.selectionState[item.path] = isSelected;
         } else if ((item.type === 'folder' || item.type === 'root') && item.children) {
             // 資料夾選取/取消選取，連帶處理所有子項目
             selectAllChildren(item, isSelected);
+            // 更新資料夾本身的勾選狀態（雖然它不直接存儲，但影響 UI）
         }
         
         // 保存狀態
         saveState();
         
-        // 更新介面
-        renderFileList();
+        // 更新介面 (除非被告知跳過)
+        if (!skipRender) {
+            renderFileList();
+        }
     }
     
     // 選取/取消選取資料夾的所有子項目
@@ -703,6 +799,8 @@
                 state.files = message.files || [];
                 
                 // 更新會話 ID
+                // *** 新增：初始化時建立 itemMap ***
+                itemMap = buildItemMap(state.files);
                 if (message.sessionId) {
                     state.sessionId = message.sessionId;
                 }
@@ -742,6 +840,8 @@
             case 'updateFiles':
                 // 更新檔案列表
                 state.files = message.files || [];
+                // *** 新增：更新時重建 itemMap ***
+                itemMap = buildItemMap(state.files);
                 renderFileList();
                 break;
                 

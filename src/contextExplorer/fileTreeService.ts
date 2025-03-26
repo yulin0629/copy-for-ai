@@ -51,8 +51,7 @@ export class FileTreeService {
                 this._outputChannel.appendLine(`詳細資訊: ${String(error)}`);
             }
         }
-        // 自動顯示輸出頻道
-        this._outputChannel.show(true);
+
     }
     
     /**

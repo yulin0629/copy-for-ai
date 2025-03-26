@@ -176,6 +176,10 @@ body, html {
     background-color: var(--hover-color);
 }
 
+.file-item:hover {
+    background-color: var(--hover-color);
+}
+
 .file-checkbox {
     margin-right: 4px;
 }
