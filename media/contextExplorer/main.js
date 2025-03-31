@@ -313,35 +313,53 @@
         
         // 深度優先搜尋找出符合的檔案
         function findMatchingItems(items, parentPath = '') {
+            // *** 確保篩選條件和路徑都轉為小寫，實現不區分大小寫搜尋 ***
+            const filterLower = state.filter.toLowerCase();
+            // *** 將篩選字串按空格拆分為多個關鍵字，並過濾空字串 ***
+            const filterKeywords = filterLower.split(' ').filter(k => k);
+            
             for (const item of items) {
-                const fullPath = parentPath ? `${parentPath} › ${item.name}` : item.name;
+                // 建立顯示用的路徑段，使用 '›' 分隔
+                const displayPathSegment = parentPath ? `${parentPath} › ${item.name}` : item.name;
+                // 將項目路徑轉為小寫以供比較
+                const pathLower = item.path.toLowerCase();
                 
-                // 檢查項目本身是否符合篩選條件
-                const itemMatchesFilter = item.name.toLowerCase().includes(state.filter) || 
-                                         item.path.toLowerCase().includes(state.filter);
+                // 檢查項目路徑是否包含 *所有* 篩選關鍵字
+                let itemPathMatchesAllKeywords = false;
+                if (filterKeywords.length > 0) {
+                    // *** 使用 every 確保路徑包含所有關鍵字 ***
+                    itemPathMatchesAllKeywords = filterKeywords.every(keyword => pathLower.includes(keyword));
+                } else {
+                    // 如果沒有篩選條件，則所有項目都視為匹配（理論上在搜尋模式下 filter 不會是空的）
+                    itemPathMatchesAllKeywords = true;
+                }
                 
-                // 同時包含匹配篩選條件的檔案和資料夾
-                if (itemMatchesFilter) {
-                    // 對於檔案，遵循"僅顯示已選取"設定
+                // 如果項目路徑符合所有關鍵字
+                if (itemPathMatchesAllKeywords) {
                     if (item.type === 'file') {
+                        // 對於檔案，遵循"僅顯示已選取"設定
                         if (!state.showSelectedOnly || state.selectionState[item.path]) {
                             matchingItems.push({
                                 item: item,
-                                displayPath: fullPath
+                                displayPath: displayPathSegment
                             });
                         }
-                    } else if ((item.type === 'folder' || item.type === 'root') && !state.showSelectedOnly) {
+                    } else if ((item.type === 'folder' || item.type === 'root')) {
                         // 對於資料夾/根目錄，當不在"僅顯示已選取"模式時才添加到結果中
-                        matchingItems.push({
-                            item: item,
-                            displayPath: fullPath
-                        });
+                        // 資料夾本身匹配也顯示出來
+                        if (!state.showSelectedOnly) {
+                            matchingItems.push({
+                                item: item,
+                                displayPath: displayPathSegment
+                            });
+                        }
                     }
                 }
                 
-                // 繼續搜索子項目
+                // 無論父資料夾是否匹配，都要繼續遞迴搜索子項目
                 if ((item.type === 'folder' || item.type === 'root') && item.children) {
-                    findMatchingItems(item.children, fullPath);
+                    // *** 傳遞更新後的顯示路徑 ***
+                    findMatchingItems(item.children, displayPathSegment);
                 }
             }
         }
@@ -353,7 +371,8 @@
             // 無搜尋結果
             const emptyElement = document.createElement('div');
             emptyElement.className = 'empty-search';
-            emptyElement.textContent = `沒有符合「${state.filter}」的檔案`;
+            // *** 更新提示文字 ***
+            emptyElement.textContent = `沒有符合「${state.filter}」的項目`;
             fileListElement.appendChild(emptyElement);
         } else {
             // 渲染搜尋結果

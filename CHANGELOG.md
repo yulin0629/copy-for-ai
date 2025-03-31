@@ -4,6 +4,14 @@ All notable changes to the "copy-for-ai" extension will be documented in this fi
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## [0.1.5] - 2025-03-31
+
+### 改進
+- 改進 Context Explorer 的檔案搜尋功能：
+  - 支援不區分大小寫搜尋。
+  - 支援使用多個關鍵字（以空格分隔）搜尋檔案路徑。
+  - 例如，現在可以輸入 "media main" 來找到 `media/contextExplorer/main.js`。
+
 ## [0.1.4] - 2025-03-10
 
 ### 新增
