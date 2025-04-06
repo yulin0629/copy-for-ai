@@ -3,6 +3,29 @@
 All notable changes to the "copy-for-ai" extension will be documented in this file.
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
+## [0.1.7] - 2025-04-06
+### 改進
+- **增強 Context Explorer 多選互動：**
+  - **視覺選取 (反白):**
+    - 支援 Shift + Click 選取視覺範圍內的項目列。
+    - 支援 Ctrl / Cmd + Click 選取多個非連續的項目列。
+    - 點擊列表空白處可取消所有視覺選取。
+  - **勾選檔案 (Checkbox):**
+    - 支援 Shift + Click Checkbox 來批次勾選/取消勾選範圍內的檔案。
+  - **點擊行為調整:** 單擊項目列（非 Checkbox 或展開圖示）主要用於視覺選取；點擊 Checkbox 則用於管理勾選狀態。
+- **前端介面優化：**
+  - 進行搜尋、清除篩選或切換「僅顯示已選」時，自動清除視覺選取狀態。
+  - 優化列表渲染邏輯，在重新渲染後盡量保持滾動位置。
+  - 當工作區無符合條件的檔案時，顯示更友善的提示訊息。
+  - 統一檔案和資料夾的 Tokens 數量顯示格式。
+- **新增支援:** 新增對 Razor (.razor, .cshtml) 和 Markdown (.md) 檔案的內容複製支援。 *(註：此項基於原 Changelog 描述，未在提供的 diff 中驗證)*
+
+## [0.1.6] - 2025-03-31
+### 改進
+- **優化 Context Explorer 檔案監聽機制：**
+  - 提升效能：避免被忽略的檔案（根據 `.gitignore` 或 `contextExplorer.excludePatterns` 設定）變更時觸發不必要的檔案列表刷新。
+  - 即時更新忽略規則：新增對 `.gitignore` 檔案本身的監聽，在其內容變更時能自動重新載入最新的忽略規則。
+  - 改善 UI 反饋：改進 WebView 在檔案列表更新時的介面提示，能更清楚地顯示觸發刷新的原因（例如：新檔案建立、`.gitignore` 更新等）。 *(註：此項基於原 Changelog 描述，未在提供的 diff 中驗證)*
 
 ## [0.1.5] - 2025-03-31
 

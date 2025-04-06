@@ -16,6 +16,8 @@ export function getLanguageKeywords(languageId: string): string[] {
             return javaKeywords;
         case 'csharp':
             return csharpKeywords;
+        case 'razor': // 新增對 cshtml (razor) 的支援
+            return csharpKeywords; // 使用 C# 關鍵字
         case 'cpp':
         case 'c':
             return cppKeywords;
@@ -31,6 +33,8 @@ export function getLanguageKeywords(languageId: string): string[] {
             return rustKeywords;
         case 'kotlin':
             return kotlinKeywords;
+        case 'markdown': // 新增對 markdown 的支援
+            return []; // Markdown 沒有關鍵字
         default:
             return [];
     }

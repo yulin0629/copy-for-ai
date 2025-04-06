@@ -15,6 +15,8 @@ export class ContextExplorerProvider implements vscode.WebviewViewProvider {
     private _context: vscode.ExtensionContext;
     private _fileSystemWatcher: vscode.FileSystemWatcher | undefined;
     private _watcherListeners: vscode.Disposable[] = [];
+    private _gitignoreWatcher: vscode.FileSystemWatcher | undefined;
+    private _gitignoreListeners: vscode.Disposable[] = [];
     private _outputChannel: vscode.OutputChannel;
     private _fileTreeService: FileTreeService;
     private _sessionId: string;
@@ -40,11 +42,28 @@ export class ContextExplorerProvider implements vscode.WebviewViewProvider {
             if (e.affectsConfiguration('copyForAI.tokenLimit')) {
                 this._updateTokenLimit();
             }
+            
+            // 當設定變更時，重新建立 FileSystemWatcher
+            if (e.affectsConfiguration('copyForAI.contextExplorer.excludePatterns') || 
+                e.affectsConfiguration('copyForAI.contextExplorer.followGitignore')) {
+                this._log('排除設定已變更，重新載入...');
+                
+                // 如果正在監聽，則停止再重新啟動
+                if (this._watcherListeners.length > 0) {
+                    this._stopWatching();
+                    this._startWatching();
+                }
+                
+                // 重新刷新檔案列表
+                this._refreshFiles('排除設定已變更');
+            }
         }, null, this._context.subscriptions);
 
         // *** 新增：確保在擴充功能停用時清理監聽器 ***
         context.subscriptions.push(vscode.Disposable.from(...this._watcherListeners));
+        context.subscriptions.push(vscode.Disposable.from(...this._gitignoreListeners));
         context.subscriptions.push({ dispose: () => this._stopWatching() }); // 確保停止監聽
+        context.subscriptions.push({ dispose: () => this._stopGitignoreWatching() }); // 清理 gitignore 監聽
     }
 
     /**
@@ -77,7 +96,7 @@ export class ContextExplorerProvider implements vscode.WebviewViewProvider {
      */
     public refreshFiles(): Promise<void> {
         this._log('從外部命令觸發檔案列表刷新');
-        return this._refreshFiles();
+        return this._refreshFiles('從使用者命令觸發');
     }
 
     /**
@@ -108,48 +127,103 @@ export class ContextExplorerProvider implements vscode.WebviewViewProvider {
     }
 
     /**
-     * 創建檔案監聽器的方法
-     */
-    private _ensureFileWatcher(): void {
-        if (this._fileSystemWatcher) {
-            return; // 已經創建
-        }
-        const workspaceFolders = vscode.workspace.workspaceFolders;
-        if (!workspaceFolders) {
-            this._log('無工作區資料夾，檔案監視器未啟動');
-            return;
-        }
-        const filePattern = new vscode.RelativePattern(workspaceFolders[0], '**/*');
-        this._fileSystemWatcher = vscode.workspace.createFileSystemWatcher(filePattern);
-        // 將 watcher 本身加入 subscriptions，以便 VS Code 自動管理其生命週期
-        this._context.subscriptions.push(this._fileSystemWatcher);
-        this._log('檔案監視器已創建');
-    }
-
-    /**
      * 啟動檔案系統監聽
      */
     private _startWatching(): void {
-        this._ensureFileWatcher(); // 確保 watcher 已創建
-        if (!this._fileSystemWatcher || this._watcherListeners.length > 0) {
-            // 如果沒有 watcher 或已經在監聽，則不執行
+        const workspaceFolders = vscode.workspace.workspaceFolders;
+        if (!workspaceFolders) {
+            this._log('無工作區資料夾，無法啟動監聽');
             return;
         }
+        
+        const workspacePath = workspaceFolders[0].uri.fsPath;
 
-        this._watcherListeners.push(this._fileSystemWatcher.onDidCreate(() => {
-            this._log('檔案系統變化: 新檔案創建');
-            this._refreshFiles();
-        }));
-        this._watcherListeners.push(this._fileSystemWatcher.onDidChange(() => {
-            this._log('檔案系統變化: 檔案內容更新');
-            this._refreshFiles();
-        }));
-        this._watcherListeners.push(this._fileSystemWatcher.onDidDelete(() => {
-            this._log('檔案系統變化: 檔案刪除');
-            this._refreshFiles();
-        }));
+        // *** 確保停止之前的監聽器 ***
+        this._stopWatching();
+        
+        // *** 新增：取得排除設定 ***
+        const config = vscode.workspace.getConfiguration('copyForAI');
+        const userExcludePatterns = config.get<string[]>('contextExplorer.excludePatterns', []);
+        const followGitignore = config.get<boolean>('contextExplorer.followGitignore', true);
 
+        // *** 新增：組合排除模式 ***
+        // 預設排除模式 + 用戶設定的排除模式
+        const allExcludePatterns = [
+            '**/node_modules/**', 
+            '**/.git/**', 
+            '**/dist/**', 
+            '**/build/**', 
+            '**/bin/**',
+            ...userExcludePatterns 
+        ];
+        const excludePattern = allExcludePatterns.length > 0 ? `{${allExcludePatterns.join(',')}}` : undefined;
+
+        this._log(`啟動檔案監聽器，排除模式: ${excludePattern || '無'}`);
+        
+        // 創建檔案系統監聽器
+        this._fileSystemWatcher = vscode.workspace.createFileSystemWatcher(
+            new vscode.RelativePattern(workspacePath, '**/*'), 
+            false, // 不忽略創建事件
+            false, // 不忽略變更事件
+            false  // 不忽略刪除事件
+        );
+        
+        // 監聽檔案創建事件
+        this._watcherListeners.push(
+            this._fileSystemWatcher.onDidCreate(uri => {
+                this._log(`檔案已創建: ${uri.fsPath}`);
+                if (!this._shouldIgnoreFile(uri.fsPath)) {
+                    this._refreshFiles(`檔案創建: ${vscode.workspace.asRelativePath(uri)}`);
+                } else {
+                    this._log(`忽略創建事件 (符合排除規則): ${uri.fsPath}`);
+                }
+            })
+        );
+        
+        // 監聽檔案變更事件
+        this._watcherListeners.push(
+            this._fileSystemWatcher.onDidChange(uri => {
+                this._log(`檔案已變更: ${uri.fsPath}`);
+                if (!this._shouldIgnoreFile(uri.fsPath)) {
+                    this._refreshFiles(`檔案變更: ${vscode.workspace.asRelativePath(uri)}`);
+                } else {
+                    this._log(`忽略變更事件 (符合排除規則): ${uri.fsPath}`);
+                }
+            })
+        );
+        
+        // 監聽檔案刪除事件
+        this._watcherListeners.push(
+            this._fileSystemWatcher.onDidDelete(uri => {
+                this._log(`檔案已刪除: ${uri.fsPath}`);
+                // 對於刪除事件，我們仍然需要刷新，除非能確定該檔案在刪除前已被排除
+                if (!this._shouldIgnoreFile(uri.fsPath)) {
+                    this._refreshFiles(`檔案刪除: ${vscode.workspace.asRelativePath(uri)}`);
+                } else {
+                    this._log(`忽略刪除事件 (符合排除規則): ${uri.fsPath}`);
+                }
+            })
+        );
+        
+        this._context.subscriptions.push(this._fileSystemWatcher);
         this._log('檔案監聽器已啟動');
+
+        // 同步啟動/停止 .gitignore 監聽
+        if (followGitignore) {
+            this._ensureGitignoreWatcher();
+        } else {
+            this._stopGitignoreWatching();
+        }
+    }
+
+    /**
+     * 檢查檔案是否應該被忽略
+     * @param filePath 檔案路徑
+     * @returns 如果檔案應該被忽略，則返回 true，否則返回 false
+     */
+    private _shouldIgnoreFile(filePath: string): boolean {
+        // 使用 FileTreeService 的 isIgnoredFile 方法來檢查檔案是否應該被忽略
+        return this._fileTreeService.isIgnoredFile(filePath);
     }
 
     /**
@@ -159,6 +233,9 @@ export class ContextExplorerProvider implements vscode.WebviewViewProvider {
         this._log('停止檔案監聽器...');
         this._watcherListeners.forEach(listener => listener.dispose());
         this._watcherListeners = [];
+        
+        // 同時停止 .gitignore 監聽
+        this._stopGitignoreWatching();
     }
 
     /**
@@ -350,8 +427,9 @@ export class ContextExplorerProvider implements vscode.WebviewViewProvider {
 
     /**
      * 刷新檔案列表
+     * @param reason 刷新原因（可選）
      */
-    private async _refreshFiles(): Promise<void> {
+    private async _refreshFiles(reason?: string): Promise<void> {
         if (!this._view) {
             this._logError('刷新檔案列表失敗: WebView 尚未建立');
             return;
@@ -364,10 +442,11 @@ export class ContextExplorerProvider implements vscode.WebviewViewProvider {
             // 發送到 WebView
             this._view.webview.postMessage({
                 command: 'updateFiles',
-                files: workspaceFiles
+                files: workspaceFiles,
+                reason: reason
             });
             
-            this._log('檔案列表已刷新');
+            this._log(`檔案列表已刷新${reason ? ': ' + reason : ''}`);
         } catch (error) {
             this._logError('刷新檔案列表失敗', error);
         }
@@ -598,6 +677,77 @@ export class ContextExplorerProvider implements vscode.WebviewViewProvider {
         } catch (error) {
             this._logError('添加資料夾到選擇列表失敗', error);
             vscode.window.showErrorMessage(`添加資料夾失敗: ${error instanceof Error ? error.message : String(error)}`);
+        }
+    }
+
+    /**
+     * 創建 .gitignore 監聽器
+     */
+    private _ensureGitignoreWatcher(): void {
+        if (this._gitignoreWatcher) {
+            return; // 已經創建
+        }
+        
+        const workspaceFolders = vscode.workspace.workspaceFolders;
+        if (!workspaceFolders) {
+            return;
+        }
+        
+        // 設定是否要監聽 .gitignore
+        const config = vscode.workspace.getConfiguration('copyForAI');
+        const followGitignore = config.get<boolean>('contextExplorer.followGitignore', true);
+        
+        if (!followGitignore) {
+            return; // 如果設定不跟隨 .gitignore，則不需要監聽
+        }
+        
+        // 監聽每個工作區資料夾中的 .gitignore 檔案變更
+        for (const folder of workspaceFolders) {
+            const gitignorePattern = new vscode.RelativePattern(folder, '.gitignore');
+            this._gitignoreWatcher = vscode.workspace.createFileSystemWatcher(gitignorePattern);
+            
+            // 將 watcher 本身加入 subscriptions
+            this._context.subscriptions.push(this._gitignoreWatcher);
+            
+            // 監聽 .gitignore 檔案變更
+            this._gitignoreListeners.push(this._gitignoreWatcher.onDidChange((uri) => {
+                this._log(`.gitignore 檔案已變更: ${uri.fsPath}`);
+                
+                // 重新刷新檔案列表，會重新載入 .gitignore 規則
+                this._refreshFiles('.gitignore 規則已更新');
+            }));
+            
+            // 監聽 .gitignore 檔案建立
+            this._gitignoreListeners.push(this._gitignoreWatcher.onDidCreate((uri) => {
+                this._log(`.gitignore 檔案已建立: ${uri.fsPath}`);
+                
+                // 重新刷新檔案列表
+                this._refreshFiles('.gitignore 檔案已建立');
+            }));
+            
+            // 監聽 .gitignore 檔案刪除
+            this._gitignoreListeners.push(this._gitignoreWatcher.onDidDelete((uri) => {
+                this._log(`.gitignore 檔案已刪除: ${uri.fsPath}`);
+                
+                // 重新刷新檔案列表
+                this._refreshFiles('.gitignore 檔案已刪除');
+            }));
+            
+            this._log(`.gitignore 檔案監視器已創建: ${folder.uri.fsPath}`);
+        }
+    }
+
+    /**
+     * 停止 .gitignore 監聽
+     */
+    private _stopGitignoreWatching(): void {
+        this._log('停止 .gitignore 監聽器...');
+        this._gitignoreListeners.forEach(listener => listener.dispose());
+        this._gitignoreListeners = [];
+        
+        if (this._gitignoreWatcher) {
+            this._gitignoreWatcher.dispose();
+            this._gitignoreWatcher = undefined;
         }
     }
 }

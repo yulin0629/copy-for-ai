@@ -22,6 +22,10 @@ export interface TreeNode {
  */
 export class FileTreeService {
     private _outputChannel: vscode.OutputChannel;
+    private _ignoreFilter: ignore.Ignore | null = null;
+    private _excludePatterns: string[] = [];
+    private _workspacePath: string = '';
+    private _gitignoreLoaded: boolean = false;
     
     constructor(outputChannel: vscode.OutputChannel) {
         this._outputChannel = outputChannel;
@@ -66,20 +70,22 @@ export class FileTreeService {
 
         // 獲取設定
         const config = vscode.workspace.getConfiguration('copyForAI');
-        const excludePatterns = config.get<string[]>('contextExplorer.excludePatterns', 
+        this._excludePatterns = config.get<string[]>('contextExplorer.excludePatterns', 
             ['**/node_modules/**', '**/.git/**', '**/dist/**', '**/build/**', '**/bin/**']);
         const followGitignore = config.get<boolean>('contextExplorer.followGitignore', true);
         
-        const workspacePath = workspaceFolders[0].uri.fsPath;
+        this._workspacePath = workspaceFolders[0].uri.fsPath;
         
         // 載入 .gitignore 過濾器 (如果啟用了該選項)
-        let ignoreFilter: ignore.Ignore | null = null;
         if (followGitignore) {
-            ignoreFilter = await this._loadGitignoreFilter(workspacePath);
+            await this._loadGitignoreFilter(this._workspacePath);
+        } else {
+            this._gitignoreLoaded = false;
+            this._ignoreFilter = null;
         }
         
         // 組合排除模式 (用於 vscode.workspace.findFiles)
-        const allExcludePatterns = [...excludePatterns];
+        const allExcludePatterns = [...this._excludePatterns];
         
         const excludePattern = allExcludePatterns.length > 0 ? `{${allExcludePatterns.join(',')}}` : '';
         
@@ -90,9 +96,9 @@ export class FileTreeService {
             this._log(`找到 ${files.length} 個檔案（排除模式: ${excludePattern || '無'}）`);
             
             // 使用 .gitignore 過濾檔案 (如果啟用了該選項)
-            if (followGitignore && ignoreFilter) {
+            if (this._gitignoreLoaded && this._ignoreFilter) {
                 const beforeCount = files.length;
-                files = this._filterFilesByGitignore(files, workspacePath, ignoreFilter);
+                files = this._filterFilesByGitignore(files, this._workspacePath, this._ignoreFilter);
                 this._log(`應用 .gitignore 過濾後剩餘 ${files.length} 個檔案 (排除了 ${beforeCount - files.length} 個檔案)`);
             }
             
@@ -138,12 +144,20 @@ export class FileTreeService {
                     .forEach(pattern => ignoreFilter.add(pattern));
                 
                 this._log(`已載入 .gitignore 過濾器，包含 ${content.split('\n').filter(line => line.trim() && !line.trim().startsWith('#')).length} 個規則`);
+                
+                // 儲存 ignore 過濾器以便重用
+                this._ignoreFilter = ignoreFilter;
+                this._workspacePath = workspacePath;
+                this._gitignoreLoaded = true;
+                
                 return ignoreFilter;
             }
         } catch (error) {
             this._logError('載入 .gitignore 過濾器失敗', error);
         }
         
+        this._gitignoreLoaded = false;
+        this._ignoreFilter = null;
         return null;
     }
     
@@ -382,6 +396,7 @@ export class FileTreeService {
             '.rs': 'rust',
             '.kt': 'kotlin',
             '.md': 'markdown',
+            '.cshtml': 'razor',
             '.html': 'html',
             '.css': 'css',
             '.json': 'json',
@@ -419,5 +434,64 @@ export class FileTreeService {
             this._logError(`讀取檔案 ${filePath} 時出錯`, error);
             return null;
         }
+    }
+
+    /**
+     * 檢查檔案是否被忽略
+     * @param filePath 檔案路徑（絕對路徑）
+     * @returns 如果檔案應該被忽略，則返回 true，否則返回 false
+     */
+    public isIgnoredFile(filePath: string): boolean {
+        if (!filePath) return false;
+        
+        // 1. 檢查排除模式
+        const workspaceFolders = vscode.workspace.workspaceFolders;
+        if (!workspaceFolders) return false;
+        
+        const relativePath = vscode.workspace.asRelativePath(filePath);
+        
+        // 使用 micromatch 或其他工具來檢查排除模式
+        for (const pattern of this._excludePatterns) {
+            // 這裡使用一個簡單的字串比較方式，實際上需要使用 glob 比對
+            // 但為了便於實現，我們使用一個簡化版本
+            if (pattern.includes('**')) {
+                const parts = pattern.split('**');
+                let matched = true;
+                
+                for (const part of parts) {
+                    if (part && !relativePath.includes(part.replace(/\*/g, ''))) {
+                        matched = false;
+                        break;
+                    }
+                }
+                
+                if (matched) return true;
+            } else if (pattern.includes('*')) {
+                const parts = pattern.split('*');
+                let matched = true;
+                
+                for (const part of parts) {
+                    if (part && !relativePath.includes(part)) {
+                        matched = false;
+                        break;
+                    }
+                }
+                
+                if (matched) return true;
+            } else if (relativePath.includes(pattern)) {
+                return true;
+            }
+        }
+        
+        // 2. 如果 gitignore 已載入且有效，檢查檔案是否符合 gitignore 規則
+        if (this._gitignoreLoaded && this._ignoreFilter && this._workspacePath) {
+            // 獲取相對於工作區的路徑
+            const relPath = path.relative(this._workspacePath, filePath).replace(/\\/g, '/');
+            
+            // 檢查是否應該被忽略
+            return this._ignoreFilter.ignores(relPath);
+        }
+        
+        return false;
     }
 }

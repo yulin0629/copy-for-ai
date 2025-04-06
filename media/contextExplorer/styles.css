@@ -8,6 +8,9 @@
     --hover-color: var(--vscode-list-hoverBackground);
     --active-color: var(--vscode-list-activeSelectionBackground);
     --active-foreground: var(--vscode-list-activeSelectionForeground);
+    /* *** 新增：選取狀態的背景色和前景色 *** */
+    --selected-background: var(--vscode-list-focusBackground, var(--active-color)); /* 使用 focus 或 active */
+    --selected-foreground: var(--vscode-list-focusForeground, var(--active-foreground));
     --button-background: var(--vscode-button-background);
     --button-foreground: var(--vscode-button-foreground);
     --button-hover-background: var(--vscode-button-hoverBackground);
@@ -32,6 +35,11 @@ body, html {
     color: var(--foreground-color);
     background-color: var(--background-color);
     overflow: hidden;
+    /* *** 新增：防止文字被選取 *** */
+    user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
 }
 
 .container {
@@ -170,18 +178,44 @@ body, html {
     align-items: center;
     min-height: 22px;
     position: relative;
+    /* *** 新增：預設邊框透明，用於選取指示 *** */
+    border: 1px solid transparent;
+    outline: 1px solid transparent; /* 用 outline 避免影響佈局 */
+    outline-offset: -1px; /* 使 outline 緊貼邊框 */
 }
 
-.file-item:hover {
+/* *** 修改：滑鼠懸停樣式 *** */
+.file-item:not(.selected):hover {
     background-color: var(--hover-color);
 }
 
-.file-item:hover {
-    background-color: var(--hover-color);
+/* *** 新增：視覺選取狀態樣式 *** */
+.file-item.selected {
+    background-color: var(--selected-background);
+    color: var(--selected-foreground);
+    outline-color: var(--vscode-list-focusOutline, var(--vscode-focusBorder)); /* 使用 focus outline 或 focus border */
 }
+
+/* *** 新增：當選取時，子元素的顏色也跟著變 *** */
+.file-item.selected .file-name,
+.file-item.selected .file-tokens,
+.file-item.selected .search-result-path,
+.file-item.selected .expand-icon,
+.file-item.selected .folder-icon::before,
+.file-item.selected .file-icon::before,
+.file-item.selected .root-icon::before {
+    color: var(--selected-foreground);
+}
+
+/* *** 新增：當選取且滑鼠懸停時，保持選取樣式 *** */
+.file-item.selected:hover {
+    background-color: var(--selected-background); /* 保持選取背景 */
+}
+
 
 .file-checkbox {
     margin-right: 4px;
+    flex-shrink: 0; /* 防止 checkbox 被壓縮 */
 }
 
 .expand-icon {
@@ -192,6 +226,7 @@ body, html {
     justify-content: center;
     margin-right: 4px;
     cursor: pointer;
+    flex-shrink: 0;
 }
 
 .expanded-icon::before {
@@ -211,6 +246,7 @@ body, html {
     align-items: center;
     justify-content: center;
     margin-right: 6px;
+    flex-shrink: 0;
 }
 
 .root-icon::before {
@@ -240,17 +276,20 @@ body, html {
     color: var(--vscode-descriptionForeground);
     font-size: 12px;
     white-space: nowrap;
+    flex-shrink: 0;
 }
 
 /* 搜尋結果樣式 */
 .search-result {
     margin-bottom: 2px;
-    border-left: 3px solid transparent;
+    /* 移除左邊框，改用 outline */
+    /* border-left: 3px solid transparent; */
 }
 
-.search-result:hover {
+/* 移除 hover 時的左邊框 */
+/* .search-result:hover {
     border-left-color: var(--vscode-focusBorder);
-}
+} */
 
 .search-result-container {
     display: flex;
@@ -335,7 +374,7 @@ body, html {
 }
 
 .copy-button:hover:not(:disabled) {
-    background-color: var(--button-hover-background);
+    background-color: var(--button-hoverBackground);
 }
 
 .copy-button:disabled {
@@ -355,6 +394,7 @@ body, html {
     position: relative;
     cursor: pointer;
     margin: 0 6px 0 0;
+    flex-shrink: 0; /* 確保 checkbox 不會被壓縮 */
 }
 
 .file-checkbox:checked {
