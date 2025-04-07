@@ -2,10 +2,10 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import { formatOutput } from '../formatter';
-import { FileTreeService, TreeNode } from './fileTreeService';
+import { FileTreeService } from './fileTreeService';
 import { StateManager } from './stateManager';
 import { ContextExplorerWebviewHandler } from './contextExplorerWebviewHandler';
-import { ExplorerState } from './types';
+import { ExplorerState, TreeNode } from './types';
 
 /**
  * Context Explorer 的後端服務邏輯
