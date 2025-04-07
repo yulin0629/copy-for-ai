@@ -1,8 +1,7 @@
 // src/contextExplorer/contextExplorerWebviewHandler.ts
 import * as vscode from 'vscode';
 import { ContextExplorerService } from './contextExplorerService';
-import { ExplorerState } from './types';
-import { TreeNode } from './fileTreeService';
+import { ExplorerState, TreeNode } from './types';
 
 /**
  * 處理 Context Explorer WebView 的互動

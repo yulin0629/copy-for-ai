@@ -1,514 +1,239 @@
+// src/contextExplorer/fileTreeService.ts
 import * as vscode from 'vscode';
 import * as path from 'path';
-import * as fs from 'fs';
-import * as ignore from 'ignore'; // 導入 ignore 套件
-import * as jschardet from 'jschardet'; // 導入編碼檢測套件
+import { TreeNode } from './types'; // 從 types 導入 TreeNode
+import { FileSystemReader } from './fileSystemReader';
+import { FileTreeBuilder } from './fileTreeBuilder';
+import { FileInfoReader } from './fileInfoReader';
 
 /**
- * 表示檔案樹中的節點（檔案或資料夾）
- */
-export interface TreeNode {
-    type: 'file' | 'folder' | 'root';
-    name: string;
-    path: string;
-    uri?: string;
-    fsPath?: string;
-    estimatedTokens?: number;
-    children?: TreeNode[];
-}
-
-/**
- * 檔案樹服務類
- * 處理檔案系統操作、檔案過濾和樹狀結構構建
+ * 檔案樹服務類 (重構後)
+ * 協調 FileSystemReader, FileTreeBuilder, FileInfoReader
+ * 提供統一的介面給 ContextExplorerService
  */
 export class FileTreeService {
     private _outputChannel: vscode.OutputChannel;
-    private _ignoreFilter: ignore.Ignore | null = null;
+    private _fileSystemReader: FileSystemReader;
+    private _fileTreeBuilder: FileTreeBuilder;
+    private _fileInfoReader: FileInfoReader;
+
+    // 保留一些狀態，因為它們與 getWorkspaceFiles 的參數相關
     private _excludePatterns: string[] = [];
+    private _followGitignore: boolean = true;
     private _workspacePath: string = '';
-    private _gitignoreLoaded: boolean = false;
-    
+
     constructor(outputChannel: vscode.OutputChannel) {
         this._outputChannel = outputChannel;
+        this._fileSystemReader = new FileSystemReader(outputChannel);
+        this._fileTreeBuilder = new FileTreeBuilder(outputChannel);
+        this._fileInfoReader = new FileInfoReader(outputChannel);
+        this._log('FileTreeService 已初始化');
     }
-    
+
     /**
      * 輸出日誌到輸出頻道
      */
     private _log(message: string): void {
         const timestamp = new Date().toISOString();
-        this._outputChannel.appendLine(`[${timestamp}] ${message}`);
+        this._outputChannel.appendLine(`[${timestamp}] [FileTreeService] ${message}`);
     }
-    
+
     /**
      * 輸出錯誤到輸出頻道
      */
     private _logError(message: string, error?: any): void {
         const timestamp = new Date().toISOString();
-        this._outputChannel.appendLine(`[${timestamp}] 錯誤: ${message}`);
+        this._outputChannel.appendLine(`[${timestamp}] [FileTreeService] 錯誤: ${message}`);
         if (error) {
-            if (error instanceof Error) {
-                this._outputChannel.appendLine(`詳細資訊: ${error.message}`);
-                if (error.stack) {
-                    this._outputChannel.appendLine(`堆疊追蹤: ${error.stack}`);
-                }
-            } else {
-                this._outputChannel.appendLine(`詳細資訊: ${String(error)}`);
-            }
+            const details = error instanceof Error ? `${error.message}${error.stack ? `\nStack: ${error.stack}` : ''}` : String(error);
+            this._outputChannel.appendLine(`詳細資訊: ${details}`);
         }
-
     }
-    
+
     /**
-     * 獲取工作區檔案
+     * 獲取工作區檔案樹
      */
     public async getWorkspaceFiles(): Promise<TreeNode[]> {
         const workspaceFolders = vscode.workspace.workspaceFolders;
-        if (!workspaceFolders) {
+        if (!workspaceFolders || workspaceFolders.length === 0) {
             this._log('無工作區資料夾，無法取得檔案');
             return [];
         }
+        const workspaceFolder = workspaceFolders[0]; // 假設只有一個工作區
+        this._workspacePath = workspaceFolder.uri.fsPath;
 
-        // 獲取設定
+        // 獲取最新設定
         const config = vscode.workspace.getConfiguration('copyForAI');
-        this._excludePatterns = config.get<string[]>('contextExplorer.excludePatterns', 
-            ['**/node_modules/**', '**/.git/**', '**/dist/**', '**/build/**', '**/bin/**']);
-        const followGitignore = config.get<boolean>('contextExplorer.followGitignore', true);
-        
-        this._workspacePath = workspaceFolders[0].uri.fsPath;
-        
-        // 載入 .gitignore 過濾器 (如果啟用了該選項)
-        if (followGitignore) {
-            await this._loadGitignoreFilter(this._workspacePath);
-        } else {
-            this._gitignoreLoaded = false;
-            this._ignoreFilter = null;
-        }
-        
-        // 組合排除模式 (用於 vscode.workspace.findFiles)
-        const allExcludePatterns = [...this._excludePatterns];
-        
-        const excludePattern = allExcludePatterns.length > 0 ? `{${allExcludePatterns.join(',')}}` : '';
-        
+        // 提供預設值，避免 undefined
+        this._excludePatterns = config.get<string[]>('contextExplorer.excludePatterns', []) || [];
+        this._followGitignore = config.get<boolean>('contextExplorer.followGitignore', true);
+
+        this._log(`開始獲取工作區檔案: ${this._workspacePath}`);
+        this._log(`排除模式: ${JSON.stringify(this._excludePatterns)}`);
+        this._log(`遵循 .gitignore: ${this._followGitignore}`);
+
         try {
-            // 獲取所有檔案
-            const pattern = new vscode.RelativePattern(workspaceFolders[0], '**/*');
-            let files = await vscode.workspace.findFiles(pattern, excludePattern || undefined);
-            this._log(`找到 ${files.length} 個檔案（排除模式: ${excludePattern || '無'}）`);
-            
-            // 使用 .gitignore 過濾檔案 (如果啟用了該選項)
-            if (this._gitignoreLoaded && this._ignoreFilter) {
-                const beforeCount = files.length;
-                files = this._filterFilesByGitignore(files, this._workspacePath, this._ignoreFilter);
-                this._log(`應用 .gitignore 過濾後剩餘 ${files.length} 個檔案 (排除了 ${beforeCount - files.length} 個檔案)`);
+            // 1. 使用 FileSystemReader 查找符合條件的檔案 URI
+            const fileUris = await this._fileSystemReader.findWorkspaceFiles(
+                workspaceFolder,
+                this._excludePatterns,
+                this._followGitignore
+            );
+
+            if (fileUris.length === 0) {
+                this._log('未找到符合條件的檔案');
+                // 即使沒有檔案，也回傳一個根節點，讓 UI 顯示專案名稱
+                 const rootNode: TreeNode = {
+                     type: 'root',
+                     name: path.basename(this._workspacePath) || '專案根目錄',
+                     path: '/',
+                     fsPath: this._workspacePath,
+                     children: [],
+                     estimatedTokens: 0
+                 };
+                 return [rootNode];
             }
-            
-            // 過濾二進制檔案和其他非文字檔案
-            const textFiles = files.filter(file => this._isTextFile(file.fsPath));
-            this._log(`過濾後剩餘 ${textFiles.length} 個文字檔案`);
-            
-            // 轉換為樹狀結構
-            const fileTree = this._filesToTree(textFiles, workspaceFolders[0].uri);
-            
-            // 添加根目錄節點
+
+            // 2. 使用 FileTreeBuilder 將 URI 列表轉換為樹狀結構
+            const fileTree = this._fileTreeBuilder.buildTree(fileUris, workspaceFolder.uri);
+
+            // 3. 建立最終的根節點
             const rootNode: TreeNode = {
                 type: 'root',
-                name: path.basename(workspaceFolders[0].uri.fsPath) || '專案根目錄',
-                path: '/',
-                fsPath: workspaceFolders[0].uri.fsPath,
+                name: path.basename(this._workspacePath) || '專案根目錄',
+                path: '/', // 根節點的相對路徑
+                fsPath: this._workspacePath,
                 children: fileTree,
-                estimatedTokens: this._calculateFolderTokens(fileTree)
+                // 根節點的 token 由其子節點遞迴計算得到
+                estimatedTokens: this._fileTreeBuilder['_calculateFolderTokens'](fileTree) // 調用 builder 的內部方法計算總和
             };
-            
+
+            this._log(`工作區檔案樹建立完成，根節點: ${rootNode.name}, Tokens: ${rootNode.estimatedTokens}`);
+            return [rootNode]; // 回傳包含單一根節點的陣列
+
+        } catch (error) {
+            this._logError('獲取工作區檔案樹時出錯', error);
+            // 發生錯誤時回傳一個空的根節點
+            const rootNode: TreeNode = {
+                 type: 'root',
+                 name: path.basename(this._workspacePath) || '專案根目錄 (錯誤)',
+                 path: '/',
+                 fsPath: this._workspacePath,
+                 children: [],
+                 estimatedTokens: 0
+             };
             return [rootNode];
-        } catch (error) {
-            this._logError('獲取工作區檔案時出錯', error);
-            return [];
-        }
-    }
-    
-    /**
-     * 載入 .gitignore 過濾器
-     */
-    private async _loadGitignoreFilter(workspacePath: string): Promise<ignore.Ignore | null> {
-        try {
-            const gitignorePath = path.join(workspacePath, '.gitignore');
-            
-            if (fs.existsSync(gitignorePath)) {
-                const content = fs.readFileSync(gitignorePath, 'utf8');
-                const ignoreFilter = ignore.default();
-                
-                content
-                    .split('\n')
-                    .map(line => line.trim())
-                    .filter(line => line && !line.startsWith('#'))
-                    .forEach(pattern => ignoreFilter.add(pattern));
-                
-                this._log(`已載入 .gitignore 過濾器，包含 ${content.split('\n').filter(line => line.trim() && !line.trim().startsWith('#')).length} 個規則`);
-                
-                // 儲存 ignore 過濾器以便重用
-                this._ignoreFilter = ignoreFilter;
-                this._workspacePath = workspacePath;
-                this._gitignoreLoaded = true;
-                
-                return ignoreFilter;
-            }
-        } catch (error) {
-            this._logError('載入 .gitignore 過濾器失敗', error);
-        }
-        
-        this._gitignoreLoaded = false;
-        this._ignoreFilter = null;
-        return null;
-    }
-    
-    /**
-     * 根據 .gitignore 過濾檔案
-     */
-    private _filterFilesByGitignore(
-        files: vscode.Uri[], 
-        workspacePath: string, 
-        ignoreFilter: ignore.Ignore | null
-    ): vscode.Uri[] {
-        if (!ignoreFilter) {
-            return files;
-        }
-        
-        return files.filter(file => {
-            // 獲取相對於工作區的路徑
-            const relativePath = path.relative(workspacePath, file.fsPath).replace(/\\/g, '/');
-            
-            // 檢查是否應該被忽略
-            const shouldIgnore = ignoreFilter.ignores(relativePath);
-            
-            return !shouldIgnore;
-        });
-    }
-    
-    /**
-     * 檢查是否為文字檔案
-     */
-    private _isTextFile(filePath: string): boolean {
-        // 檢查副檔名，排除常見二進制檔案類型
-        const ext = path.extname(filePath).toLowerCase();
-        const binaryExtensions = [
-            '.exe', '.dll', '.so', '.dylib', '.obj', '.o', '.bin',
-            '.zip', '.tar', '.gz', '.7z', '.rar', '.jar',
-            '.jpg', '.jpeg', '.png', '.gif', '.bmp', '.ico', '.webp',
-            '.mp3', '.wav', '.ogg', '.mp4', '.avi', '.mov', '.webm',
-            '.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx'
-        ];
-        
-        return !binaryExtensions.includes(ext);
-    }
-    
-    /**
-     * 檢查是否為文字檔案 (公開方法)
-     */
-    public isTextFile(filePath: string): boolean {
-        return this._isTextFile(filePath);
-    }
-    
-    /**
-     * 將檔案轉換為樹狀結構
-     */
-    private _filesToTree(files: vscode.Uri[], rootUri: vscode.Uri): TreeNode[] {
-        // 使用物件作為中間表示形式
-        const folderMap: Record<string, {
-            node: TreeNode;
-            children: Record<string, TreeNode>;
-        }> = {};
-        
-        // 建立樹狀結構
-        for (const file of files) {
-            // 統一使用 / 作為路徑分隔符
-            const relativePath = vscode.workspace.asRelativePath(file, false).replace(/\\/g, '/');
-            const parts = relativePath.split('/');
-            
-            let currentPath = '';
-            
-            // 確保每一層路徑都創建對應的資料夾節點
-            for (let i = 0; i < parts.length - 1; i++) {
-                const part = parts[i];
-                currentPath = currentPath ? `${currentPath}/${part}` : part;
-                
-                if (!folderMap[currentPath]) {
-                    folderMap[currentPath] = {
-                        node: {
-                            type: 'folder',
-                            name: part,
-                            path: currentPath,
-                            children: []
-                        },
-                        children: {}
-                    };
-                }
-            }
-            
-            // 處理檔案
-            const fileName = parts[parts.length - 1];
-            const filePath = parts.join('/');
-            const parentPath = parts.slice(0, parts.length - 1).join('/');
-            
-            // 估算檔案 tokens
-            const estimatedTokens = this.estimateTokens(file.fsPath);
-            
-            // 建立檔案節點
-            const fileNode: TreeNode = {
-                type: 'file',
-                name: fileName,
-                path: filePath,
-                fsPath: file.fsPath,
-                uri: file.toString(),
-                estimatedTokens
-            };
-            
-            // 將檔案加入到父資料夾
-            if (parentPath) {
-                folderMap[parentPath].children[fileName] = fileNode;
-            } else {
-                // 處理根目錄下的檔案
-                if (!folderMap['root']) {
-                    folderMap['root'] = {
-                        node: {
-                            type: 'folder',
-                            name: 'root',
-                            path: '',
-                            children: []
-                        },
-                        children: {}
-                    };
-                }
-                folderMap['root'].children[fileName] = fileNode;
-            }
-        }
-        
-        // 將資料夾樹狀結構轉換為陣列
-        const result: TreeNode[] = [];
-        
-        // 轉換為最終的樹狀結構
-        for (const [folderPath, folder] of Object.entries(folderMap)) {
-            const childrenArray: TreeNode[] = Object.values(folder.children);
-            folder.node.children = childrenArray;
-        }
-        
-        // 為每個資料夾建立正確的父子關係
-        for (const [folderPath, folder] of Object.entries(folderMap)) {
-            const parts = folderPath.split('/');
-            
-            if (parts.length === 1) {
-                // 頂層資料夾直接加入結果
-                if (folderPath !== 'root') {
-                    result.push(folder.node);
-                }
-            } else {
-                // 將子資料夾加入到父資料夾
-                const parentPath = parts.slice(0, parts.length - 1).join('/');
-                if (folderMap[parentPath]) {
-                    const parentNode = folderMap[parentPath].node;
-                    if (parentNode.children) {
-                        parentNode.children.push(folder.node);
-                    }
-                }
-            }
-        }
-        
-        // 加入根目錄下的檔案
-        if (folderMap['root']) {
-            const rootFiles = Object.values(folderMap['root'].children);
-            result.push(...rootFiles);
-        }
-        
-        // 計算每個資料夾的 tokens 總和
-        for (const [folderPath, folder] of Object.entries(folderMap)) {
-            if (folder.node.children && folder.node.children.length > 0) {
-                folder.node.estimatedTokens = this._calculateFolderTokens(folder.node.children);
-            }
-        }
-        
-        // 先資料夾後檔案排序
-        result.sort((a, b) => {
-            if (a.type === b.type) {
-                return a.name.localeCompare(b.name);
-            }
-            return a.type === 'folder' ? -1 : 1;
-        });
-        
-        return result;
-    }
-    
-    /**
-     * 計算資料夾的 tokens 總和
-     */
-    private _calculateFolderTokens(items: TreeNode[]): number {
-        let totalTokens = 0;
-        
-        for (const item of items) {
-            if (item.type === 'file' && item.estimatedTokens) {
-                totalTokens += item.estimatedTokens;
-            } else if ((item.type === 'folder' || item.type === 'root') && item.children) {
-                totalTokens += this._calculateFolderTokens(item.children);
-            }
-        }
-        
-        return totalTokens;
-    }
-    
-    /**
-     * 估算檔案的 tokens 數量
-     */
-    public estimateTokens(filePath: string): number {
-        try {
-            const stats = fs.statSync(filePath);
-            const fileSize = stats.size;
-            
-            // 簡單估算：大約 4 個字元等於 1 個 token
-            // 實際情況可能會更複雜，需要根據語言和內容來計算
-            return Math.ceil(fileSize / 4);
-        } catch (error) {
-            this._logError(`估算檔案 tokens 出錯：${filePath}`, error);
-            return 0;
-        }
-    }
-    
-    /**
-     * 根據檔案路徑獲取語言 ID
-     */
-    public getLanguageId(filePath: string): string {
-        const extension = path.extname(filePath).toLowerCase();
-        
-        // 檔案副檔名對應到語言 ID
-        const extensionMap: Record<string, string> = {
-            '.js': 'javascript',
-            '.mjs': 'javascript', // 新增支援 .mjs 檔案
-            '.cjs': 'javascript', // 新增支援 .cjs 檔案
-            '.ts': 'typescript',
-            '.jsx': 'javascriptreact',
-            '.tsx': 'typescriptreact',
-            '.py': 'python',
-            '.java': 'java',
-            '.c': 'c',
-            '.cpp': 'cpp',
-            '.cs': 'csharp',
-            '.go': 'go',
-            '.rb': 'ruby',
-            '.php': 'php',
-            '.swift': 'swift',
-            '.rs': 'rust',
-            '.kt': 'kotlin',
-            '.md': 'markdown',
-            '.cshtml': 'razor',
-            '.html': 'html',
-            '.css': 'css',
-            '.json': 'json',
-            '.xml': 'xml',
-            '.yml': 'yaml',
-            '.yaml': 'yaml',
-            '.sh': 'shellscript',
-        };
-        
-        return extensionMap[extension] || 'plaintext';
-    }
-    
-    /**
-     * 讀取檔案內容
-     */
-    public readFileContent(filePath: string): string | null {
-        try {
-            // 檢查檔案是否存在
-            if (!fs.existsSync(filePath)) {
-                this._logError(`檔案不存在: ${filePath}`);
-                return null;
-            }
-            
-            // 先讀取檔案的一小部分來檢測編碼
-            const buffer = fs.readFileSync(filePath);
-            
-            // 檢測檔案編碼
-            const detection = jschardet.detect(buffer);
-            const encoding = detection.encoding || 'utf8';
-            
-            this._log(`檔案 ${filePath} 的檢測編碼為: ${encoding} (可信度: ${detection.confidence})`);
-            
-            // 使用檢測到的編碼讀取檔案內容
-            let fileContent: string;
-            try {
-                fileContent = buffer.toString(encoding.toLowerCase() as BufferEncoding);
-            } catch (encError) {
-                // 如果指定的編碼無效，回退到 utf8
-                this._log(`指定的編碼 ${encoding} 無效，回退使用 utf8`);
-                fileContent = buffer.toString('utf8');
-            }
-            
-            // 如果檔案內容為空或無法讀取，返回 null
-            if (fileContent === undefined) {
-                this._logError(`檔案內容無法讀取: ${filePath}`);
-                return null;
-            }
-            
-            return fileContent;
-        } catch (error) {
-            this._logError(`讀取檔案 ${filePath} 時出錯`, error);
-            return null;
         }
     }
 
     /**
-     * 檢查檔案是否被忽略
+     * 讀取檔案內容 (委派給 FileInfoReader)
+     */
+    public readFileContent(filePath: string): string | null {
+        // 確保傳遞的是絕對路徑
+        if (!path.isAbsolute(filePath)) {
+             if (this._workspacePath) {
+                 filePath = path.join(this._workspacePath, filePath);
+                 this._log(`readFileContent: 將相對路徑 ${arguments[0]} 轉換為絕對路徑 ${filePath}`);
+             } else {
+                 this._logError(`readFileContent: 無法轉換相對路徑 ${filePath}，缺少 workspacePath`);
+                 return null;
+             }
+        }
+        return this._fileInfoReader.readFileContent(filePath);
+    }
+
+    /**
+     * 估算檔案的 tokens 數量 (委派給 FileTreeBuilder)
+     */
+    public estimateTokens(filePath: string): number {
+         // 確保傳遞的是絕對路徑
+         if (!path.isAbsolute(filePath)) {
+             if (this._workspacePath) {
+                 filePath = path.join(this._workspacePath, filePath);
+             } else {
+                 this._logError(`estimateTokens: 無法轉換相對路徑 ${filePath}，缺少 workspacePath`);
+                 return 0;
+             }
+         }
+        return this._fileTreeBuilder.estimateTokens(filePath);
+    }
+
+    /**
+     * 根據檔案路徑獲取語言 ID (委派給 FileInfoReader)
+     */
+    public getLanguageId(filePath: string): string {
+        // getLanguageId 通常使用相對路徑或檔名即可，無需轉換
+        return this._fileInfoReader.getLanguageId(filePath);
+    }
+
+    /**
+     * 檢查是否為文字檔案 (委派給 FileSystemReader)
+     */
+    public isTextFile(filePath: string): boolean {
+        // 確保傳遞的是絕對路徑
+         if (!path.isAbsolute(filePath)) {
+             if (this._workspacePath) {
+                 filePath = path.join(this._workspacePath, filePath);
+             } else {
+                 // 如果沒有 workspacePath，無法可靠判斷，保守返回 true 或 false
+                 // 或者依賴 FileSystemReader 的內部邏輯（如果它能處理）
+                 // 這裡假設 FileSystemReader 需要絕對路徑
+                 this._logError(`isTextFile: 無法轉換相對路徑 ${filePath}，缺少 workspacePath`);
+                 return false; // 保守返回 false
+             }
+         }
+        return this._fileSystemReader.isTextFile(filePath);
+    }
+
+    /**
+     * 檢查檔案是否被忽略 (綜合 VSCode 設定和 .gitignore)
      * @param filePath 檔案路徑（絕對路徑）
      * @returns 如果檔案應該被忽略，則返回 true，否則返回 false
      */
     public isIgnoredFile(filePath: string): boolean {
-        if (!filePath) return false;
-        
-        // 1. 檢查排除模式
-        const workspaceFolders = vscode.workspace.workspaceFolders;
-        if (!workspaceFolders) return false;
-        
+        if (!filePath || !this._workspacePath) return false;
+
+        // 確保是絕對路徑
+        if (!path.isAbsolute(filePath)) {
+            filePath = path.join(this._workspacePath, filePath);
+        }
+
+        // 1. 檢查 VS Code 排除模式 (需要 glob 匹配)
+        // 使用 vscode.workspace.asRelativePath 獲取相對於工作區的路徑
         const relativePath = vscode.workspace.asRelativePath(filePath);
-        
-        // 使用 micromatch 或其他工具來檢查排除模式
+
+        // 簡易檢查 (注意：這不是完整的 glob 匹配，可能不完全準確)
+        // 實際應用中應使用像 micromatch 這樣的庫
         for (const pattern of this._excludePatterns) {
-            // 這裡使用一個簡單的字串比較方式，實際上需要使用 glob 比對
-            // 但為了便於實現，我們使用一個簡化版本
-            if (pattern.includes('**')) {
-                const parts = pattern.split('**');
-                let matched = true;
-                
-                for (const part of parts) {
-                    if (part && !relativePath.includes(part.replace(/\*/g, ''))) {
-                        matched = false;
-                        break;
-                    }
-                }
-                
-                if (matched) return true;
-            } else if (pattern.includes('*')) {
-                const parts = pattern.split('*');
-                let matched = true;
-                
-                for (const part of parts) {
-                    if (part && !relativePath.includes(part)) {
-                        matched = false;
-                        break;
-                    }
-                }
-                
-                if (matched) return true;
-            } else if (relativePath.includes(pattern)) {
+            // 簡易的 ** 匹配
+            if (pattern.startsWith('**/') && relativePath.includes(pattern.substring(3))) {
+                this._log(`檔案 ${relativePath} 符合 VSCode 排除模式 (簡易 **): ${pattern}`);
                 return true;
             }
+            // 簡易的結尾匹配
+            if (pattern.endsWith('/**') && relativePath.startsWith(pattern.substring(0, pattern.length - 3))) {
+                 this._log(`檔案 ${relativePath} 符合 VSCode 排除模式 (簡易 /**): ${pattern}`);
+                 return true;
+            }
+            // 簡易的包含匹配 (可能誤判)
+            if (relativePath.includes(pattern.replace(/\*/g, ''))) { // 移除 * 進行簡單包含檢查
+                 // this._log(`檔案 ${relativePath} 可能符合 VSCode 排除模式 (簡易包含): ${pattern}`);
+                 // return true; // 這種檢查太寬鬆，暫時註解掉
+            }
+            // 這裡應該加入更精確的 glob 匹配邏輯
         }
-        
-        // 2. 如果 gitignore 已載入且有效，檢查檔案是否符合 gitignore 規則
-        if (this._gitignoreLoaded && this._ignoreFilter && this._workspacePath) {
-            // 獲取相對於工作區的路徑
-            const relPath = path.relative(this._workspacePath, filePath).replace(/\\/g, '/');
-            
-            // 檢查是否應該被忽略
-            return this._ignoreFilter.ignores(relPath);
+        // TODO: 引入 micromatch 或類似庫來進行精確的 glob 匹配
+
+        // 2. 檢查 .gitignore (如果啟用)
+        if (this._followGitignore) {
+            // FileSystemReader 內部會檢查 _gitignoreLoaded
+            if (this._fileSystemReader.isIgnoredByGitignore(filePath)) {
+                 this._log(`檔案 ${relativePath} 符合 .gitignore 規則`);
+                 return true;
+            }
         }
-        
+
         return false;
     }
 }
