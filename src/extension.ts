@@ -1,7 +1,8 @@
+// src/extension.ts
 import * as vscode from 'vscode';
 import { processCode, removeComments } from './codeAnalyzer';
 import { formatOutput } from './formatter';
-import { ContextExplorerProvider } from './contextExplorer/contextExplorerProvider';
+import { ContextExplorerProvider } from './contextExplorer/contextExplorerProvider'; // 確認路徑正確
 
 /**
  * 當擴展被啟動時執行
@@ -19,80 +20,81 @@ export function activate(context: vscode.ExtensionContext) {
     const contextCopyCommand = vscode.commands.registerCommand('copy-for-ai.copyForAIWithContext', async () => {
         await copyForAI(true);
     });
-    
-    // 註冊刷新命令
-    const refreshCommand = vscode.commands.registerCommand('copy-for-ai.refresh', () => {
-        vscode.commands.executeCommand('workbench.action.reloadWindow');
-    });
+
+    // 註冊刷新命令 (這個命令現在由 Provider 內部處理，但保留註冊)
+    // const refreshCommand = vscode.commands.registerCommand('copy-for-ai.refresh', () => {
+    //     vscode.commands.executeCommand('workbench.action.reloadWindow');
+    // });
 
     // 創建 Context Explorer 提供者
-    const contextExplorerProvider = new ContextExplorerProvider(context);
-    
+    const contextExplorerProvider = new ContextExplorerProvider(context); // 實例化 Provider
+
     // 註冊 Context Explorer 視圖
     const contextExplorerView = vscode.window.registerWebviewViewProvider(
         ContextExplorerProvider.viewType,
-        contextExplorerProvider
+        contextExplorerProvider // 註冊 Provider 實例
     );
 
     const openSettingsCommand = vscode.commands.registerCommand('copy-for-ai.openSettings', () => {
         vscode.commands.executeCommand('workbench.action.openSettings', 'copyForAI');
     });
-        
-    // 在 ContextExplorerProvider 中處理刷新命令
+
+    // 註冊 Context Explorer 的刷新命令，調用 Provider 的公共方法
     context.subscriptions.push(
         vscode.commands.registerCommand('copy-for-ai.contextExplorer.refresh', () => {
-            // 這裡我們可以呼叫 contextExplorerProvider 的方法來刷新檔案列表
-            // 但須修改 ContextExplorerProvider 類添加 refreshFiles 方法
-            contextExplorerProvider.refreshFiles(); // 確保 ContextExplorerProvider 有此方法
+            contextExplorerProvider.refreshFiles(); // 調用 Provider 的方法
         })
     );
 
     // 註冊添加檔案到 Context Explorer 的命令
-    const addFileToExplorerCommand = vscode.commands.registerCommand('copy-for-ai.addFileToExplorer', async (fileUri: vscode.Uri) => {
-        if (!fileUri) {
+    const addFileToExplorerCommand = vscode.commands.registerCommand('copy-for-ai.addFileToExplorer', async (fileUri?: vscode.Uri) => {
+        const targetUri = fileUri ?? vscode.window.activeTextEditor?.document.uri;
+        if (!targetUri) {
             vscode.window.showErrorMessage('無法獲取檔案路徑');
             return;
         }
-        
-        await contextExplorerProvider.addFileToExplorer(fileUri.fsPath);
+        await contextExplorerProvider.addFileToExplorer(targetUri.fsPath); // 調用 Provider 的方法
     });
 
     // 註冊添加資料夾到 Context Explorer 的命令
-    const addFolderToExplorerCommand = vscode.commands.registerCommand('copy-for-ai.addFolderToExplorer', async (folderUri: vscode.Uri) => {
-        if (!folderUri) {
+    const addFolderToExplorerCommand = vscode.commands.registerCommand('copy-for-ai.addFolderToExplorer', async (folderUri?: vscode.Uri) => {
+         if (!folderUri) {
             vscode.window.showErrorMessage('無法獲取資料夾路徑');
             return;
         }
-        
-        await contextExplorerProvider.addFolderToExplorer(folderUri.fsPath);
+        await contextExplorerProvider.addFolderToExplorer(folderUri.fsPath); // 調用 Provider 的方法
     });
 
     // 註冊從編輯器頁籤添加檔案到 Context Explorer 的命令
-    const addEditorTabToExplorerCommand = vscode.commands.registerCommand('copy-for-ai.addEditorTabToExplorer', async (fileUri: vscode.Uri) => {
-        if (!fileUri) {
-            // 如果沒有直接傳入 URI，則使用當前編輯器的文件
-            const editor = vscode.window.activeTextEditor;
-            if (!editor) {
-                vscode.window.showErrorMessage('無法獲取當前編輯器中的檔案');
-                return;
-            }
-            fileUri = editor.document.uri;
+    const addEditorTabToExplorerCommand = vscode.commands.registerCommand('copy-for-ai.addEditorTabToExplorer', async (resource: any) => {
+        let fileUri: vscode.Uri | undefined;
+
+        // 檢查傳入的資源類型
+        if (resource instanceof vscode.Uri) {
+            fileUri = resource;
+        } else if (vscode.window.activeTextEditor) {
+            fileUri = vscode.window.activeTextEditor.document.uri;
         }
-        
-        await contextExplorerProvider.addFileToExplorer(fileUri.fsPath);
+
+        if (!fileUri) {
+            vscode.window.showErrorMessage('無法獲取當前編輯器中的檔案');
+            return;
+        }
+        await contextExplorerProvider.addFileToExplorer(fileUri.fsPath); // 調用 Provider 的方法
     });
 
+
     context.subscriptions.push(
-        basicCopyCommand, 
-        contextCopyCommand, 
-        refreshCommand,
+        basicCopyCommand,
+        contextCopyCommand,
+        // refreshCommand, // 不再需要這個全局刷新
         contextExplorerView,
         openSettingsCommand,
         addFileToExplorerCommand,
         addFolderToExplorerCommand,
         addEditorTabToExplorerCommand
     );
-    
+
     // 註冊檔案關聯擴展
     registerFileAssociations();
 }
@@ -106,24 +108,24 @@ function registerFileAssociations() {
     vscode.languages.setLanguageConfiguration('javascript', {
         wordPattern: /(-?\d*\.\d\w*)|([^\`\~\!\@\#\%\^\&\*\(\)\-\=\+\[\{\]\}\\\|\;\:\'\"\,\.\<\>\/\?\s]+)/g
     });
-    
+
     // 確保 .mjs 和 .cjs 檔案被識別為 JavaScript
     const jsConfig = vscode.workspace.getConfiguration('files');
     const associations = jsConfig.get<{[key: string]: string}>('associations', {});
-    
+
     // 檢查是否已經有相關關聯
     let hasChanged = false;
-    
+
     if (!associations['*.mjs']) {
         associations['*.mjs'] = 'javascript';
         hasChanged = true;
     }
-    
+
     if (!associations['*.cjs']) {
         associations['*.cjs'] = 'javascript';
         hasChanged = true;
     }
-    
+
     // 如果有變更，更新設定
     if (hasChanged) {
         jsConfig.update('associations', associations, vscode.ConfigurationTarget.Global);
@@ -169,8 +171,8 @@ async function copyForAI(includeContext: boolean) {
  * @param progress 進度報告（可選）
  */
 async function doCopy(
-    editor: vscode.TextEditor, 
-    selection: vscode.Selection, 
+    editor: vscode.TextEditor,
+    selection: vscode.Selection,
     includeContext: boolean,
     progress?: vscode.Progress<{ message?: string; increment?: number }>
 ) {
@@ -185,7 +187,7 @@ async function doCopy(
     // 讀取設定
     const config = vscode.workspace.getConfiguration('copyForAI');
     let outputFormat = config.get<string>('outputFormat', 'markdown');
-    
+
     // 確保格式是有效的，否則使用預設值
     if (!['markdown', 'xml', 'json', 'custom'].includes(outputFormat)) {
         outputFormat = 'markdown';
@@ -194,23 +196,23 @@ async function doCopy(
 
     // 檢查是否需要過濾註解
     const includeComments = config.get<boolean>('includeComments', true);
-    
+
     // 處理程式碼（包括結構分析等）
     let extraContext: any = {};
     let processedCode = text;
-    
+
     if (includeContext) {
         progress?.report({ message: "分析程式碼結構..." });
-        
+
         const includeStructure = config.get<boolean>('includeStructureInfo', true);
         const includeImports = config.get<boolean>('includeRelatedImports', true);
-        
+
         const result = await processCode(document, selection, {
             includeStructure,
             includeImports,
             includeComments
         });
-        
+
         extraContext.structure = result.structure;
         extraContext.imports = result.imports;
         processedCode = result.code;
@@ -218,10 +220,10 @@ async function doCopy(
         // 僅移除註解但不需要上下文分析
         processedCode = removeComments(text);
     }
-    
+
     // 處理程式碼縮排
     processedCode = normalizeIndentation(processedCode);
-    
+
     // 格式化輸出
     const formattedOutput = formatOutput({
         format: outputFormat as any,
@@ -232,10 +234,10 @@ async function doCopy(
         code: processedCode,
         ...extraContext
     });
-    
+
     // 複製到剪貼簿
     await vscode.env.clipboard.writeText(formattedOutput);
-    
+
     // 顯示成功訊息
     if (includeContext) {
         vscode.window.showInformationMessage(`已複製程式碼和上下文到剪貼簿 (格式: ${outputFormat})`);
@@ -251,7 +253,7 @@ async function doCopy(
  */
 function normalizeIndentation(code: string): string {
     const lines = code.split('\n');
-    
+
     // 找出共同的前導空白字元數量 (非空白行)
     let minIndent = Number.MAX_VALUE;
     for (const line of lines) {
@@ -265,12 +267,12 @@ function normalizeIndentation(code: string): string {
             minIndent = indent;
         }
     }
-    
+
     // 如果全都是空白行，設置為0
     if (minIndent === Number.MAX_VALUE) {
         minIndent = 0;
     }
-    
+
     // 移除共同的前導空白，確保所有行都從第一欄開始
     const processedLines = lines.map(line => {
         // 處理空白行
@@ -280,7 +282,7 @@ function normalizeIndentation(code: string): string {
         // 移除每行的共同前導空白字元
         return line.substring(minIndent);
     });
-    
+
     return processedLines.join('\n');
 }
 

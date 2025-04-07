@@ -69,9 +69,9 @@
     "menus": {
       "view/title": [
         {
-            "command": "copy-for-ai.openSettings",
-            "when": "view == copy-for-ai.contextExplorer",
-            "group": "navigation"
+          "command": "copy-for-ai.openSettings",
+          "when": "view == copy-for-ai.contextExplorer",
+          "group": "navigation"
         }
       ],
       "explorer/context": [
@@ -228,6 +228,7 @@
   },
   "dependencies": {
     "ignore": "^5.3.2",
+    "jschardet": "^3.1.4",
     "strip-comments": "^2.0.1"
   }
 }

@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as ignore from 'ignore'; // 導入 ignore 套件
+import * as jschardet from 'jschardet'; // 導入編碼檢測套件
 
 /**
  * 表示檔案樹中的節點（檔案或資料夾）
@@ -420,8 +421,24 @@ export class FileTreeService {
                 return null;
             }
             
-            // 讀取檔案內容
-            const fileContent = fs.readFileSync(filePath, 'utf8');
+            // 先讀取檔案的一小部分來檢測編碼
+            const buffer = fs.readFileSync(filePath);
+            
+            // 檢測檔案編碼
+            const detection = jschardet.detect(buffer);
+            const encoding = detection.encoding || 'utf8';
+            
+            this._log(`檔案 ${filePath} 的檢測編碼為: ${encoding} (可信度: ${detection.confidence})`);
+            
+            // 使用檢測到的編碼讀取檔案內容
+            let fileContent: string;
+            try {
+                fileContent = buffer.toString(encoding.toLowerCase() as BufferEncoding);
+            } catch (encError) {
+                // 如果指定的編碼無效，回退到 utf8
+                this._log(`指定的編碼 ${encoding} 無效，回退使用 utf8`);
+                fileContent = buffer.toString('utf8');
+            }
             
             // 如果檔案內容為空或無法讀取，返回 null
             if (fileContent === undefined) {
