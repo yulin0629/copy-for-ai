@@ -3,6 +3,33 @@
 All notable changes to the "copy-for-ai" extension will be documented in this file.
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
+
+## [0.1.8] - 2025-04-08
+### 新增
+- **程式碼片段支援:**
+    - 新增從編輯器選取程式碼並透過右鍵選單「Add Snippet to Copy For AI Explorer」將其添加為可重複使用的片段。
+    - Context Explorer 中新增獨立的「程式碼片段」可摺疊區塊，用於顯示和管理已儲存的片段。
+    - 支援勾選、複製、預覽（點擊跳轉至原始碼位置）和移除程式碼片段。
+    - 片段會儲存其來源檔案、行號、程式碼內容（可選擇是否包含註解）、語言 ID、預估 Tokens，以及可選的程式碼結構和引用資訊。
+- **檔案編碼偵測:** 引入 `jschardet` 函式庫以改進讀取檔案內容時的編碼偵測能力。
+
+### 改進
+- **Context Explorer UI/UX:**
+    - 將「檔案列表」和「程式碼片段」分為獨立的可摺疊區塊，改善介面組織。
+    - 更新 WebView 介面樣式，更緊密地遵循 VS Code 佈景主題變數，提升視覺一致性。
+    - 為列表項目、按鈕和訊息提示添加圖示 (Emojis)，提升可識別性。
+    - 改善列表項目點擊延遲處理，區分單擊（預覽）和雙擊（未來可擴展）。
+    - 最佳化訊息提示的顯示與互動。
+- **程式碼結構與重構:**
+    - **WebView:** 將前端 JavaScript 程式碼拆分為 `state.js`, `ui.js`, `events.js`, `vscodeApi.js` 等模組，提高可維護性。
+    - **後端:** 將 `FileTreeService` 的職責拆分為 `FileSystemReader` (讀取與過濾)、`FileTreeBuilder` (建立樹狀結構與計算 Token)、`FileInfoReader` (讀取內容與取得語言 ID)，使架構更清晰。
+- **建構流程:**
+    - 重構 `esbuild.js`，為擴充功能主體和 WebView 分別進行建構，並改善靜態資源（如 CSS）的複製邏輯。
+- **設定應用:**
+    - `includeStructureInfo`, `includeRelatedImports`, `includeComments` 設定現在也適用於添加程式碼片段時的上下文分析。
+    - `outputFormat` 設定現在也適用於從 Explorer 複製片段時的輸出格式。
+
+
 ## [0.1.7] - 2025-04-06
 ### 改進
 - **增強 Context Explorer 多選互動：**

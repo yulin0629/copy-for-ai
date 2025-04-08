@@ -8,17 +8,38 @@
     --hover-color: var(--vscode-list-hoverBackground);
     --active-color: var(--vscode-list-activeSelectionBackground);
     --active-foreground: var(--vscode-list-activeSelectionForeground);
-    /* *** 新增：選取狀態的背景色和前景色 *** */
     --selected-background: var(--vscode-list-focusBackground, var(--active-color)); /* 使用 focus 或 active */
     --selected-foreground: var(--vscode-list-focusForeground, var(--active-foreground));
     --button-background: var(--vscode-button-background);
     --button-foreground: var(--vscode-button-foreground);
     --button-hover-background: var(--vscode-button-hoverBackground);
+    --button-border: var(--vscode-button-border); /* Added for button border */
     --input-background: var(--vscode-input-background);
     --input-foreground: var(--vscode-input-foreground);
     --input-border: var(--vscode-input-border);
     --progress-bar-background: var(--vscode-progressBar-background);
     --error-foreground: var(--vscode-errorForeground, #f44336);
+    --description-foreground: var(--vscode-descriptionForeground);
+    --focus-border: var(--vscode-focusBorder);
+    --list-focus-outline: var(--vscode-list-focusOutline, var(--focus-border));
+    --icon-foreground: var(--vscode-icon-foreground); /* Keep for potential future use, though emojis might not use it */
+    --button-secondary-background: var(--vscode-button-secondaryBackground);
+    --button-secondary-foreground: var(--vscode-button-secondaryForeground);
+    --button-secondary-hover-background: var(--vscode-button-secondaryHoverBackground);
+    --checkbox-background: var(--vscode-checkbox-background);
+    --checkbox-foreground: var(--vscode-checkbox-foreground);
+    --checkbox-border: var(--vscode-checkbox-border);
+    --notification-toast-background: var(--vscode-notificationToast-background, #333);
+    --notification-toast-foreground: var(--vscode-notificationToast-foreground, #fff);
+    --notification-toast-border: var(--vscode-notificationToast-border, #444);
+    --statusbar-background: var(--vscode-statusBar-background);
+    --statusbar-foreground: var(--vscode-statusBar-foreground);
+    --statusbar-border: var(--vscode-statusBar-border, transparent);
+    --statusbar-error-background: var(--vscode-statusBarItem-errorBackground, var(--error-foreground));
+    --statusbar-error-foreground: var(--vscode-statusBarItem-errorForeground, white);
+    --sidebar-sectionheader-background: var(--vscode-sideBarSectionHeader-background);
+    --input-option-hover-background: var(--vscode-inputOption-hoverBackground);
+    --editor-warning-foreground: var(--vscode-editorWarning-foreground);
 }
 
 * {
@@ -35,7 +56,6 @@ body, html {
     color: var(--foreground-color);
     background-color: var(--background-color);
     overflow: hidden;
-    /* *** 新增：防止文字被選取 *** */
     user-select: none;
     -webkit-user-select: none;
     -moz-user-select: none;
@@ -47,14 +67,14 @@ body, html {
     flex-direction: column;
     height: 100%;
     width: 100%;
-    overflow: hidden;
+    overflow: hidden; /* 確保容器本身不滾動 */
 }
 
 /* 標題列 */
 .header {
     padding: 8px 10px;
     border-bottom: 1px solid var(--separator-color);
-    flex-shrink: 0;
+    flex-shrink: 0; /* 固定高度 */
 }
 
 .header h1 {
@@ -70,7 +90,7 @@ body, html {
     flex-direction: column;
     gap: 8px;
     border-bottom: 1px solid var(--separator-color);
-    flex-shrink: 0;
+    flex-shrink: 0; /* 固定高度 */
 }
 
 .search-container {
@@ -84,42 +104,64 @@ body, html {
     left: 6px;
     top: 50%;
     transform: translateY(-50%);
-    width: 16px;
-    height: 16px;
-    color: var(--vscode-descriptionForeground);
+    width: 16px; /* Adjust if needed */
+    height: 16px; /* Adjust if needed */
+    color: var(--description-foreground);
+    pointer-events: none; /* 防止圖示攔截點擊 */
+    /* Use ::before for the icon */
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
 }
+.search-icon::before {
+    content: "🔍"; /* Search emoji */
+    font-size: 14px; /* Adjust size */
+}
+
 
 #filter-input {
     width: 100%;
-    padding: 4px 25px 4px 24px;
+    padding: 4px 28px 4px 26px; /* 調整 padding 以容納圖示 */
     border: 1px solid var(--input-border);
     background-color: var(--input-background);
     color: var(--input-foreground);
     outline: none;
+    border-radius: 2px;
 }
 
 #filter-input:focus {
-    border-color: var(--vscode-focusBorder);
+    border-color: var(--focus-border);
 }
 
 .clear-button {
     position: absolute;
-    right: 6px;
+    right: 4px;
     top: 50%;
     transform: translateY(-50%);
     background: transparent;
     border: none;
-    color: var(--vscode-descriptionForeground);
+    color: var(--description-foreground);
     cursor: pointer;
-    font-size: 12px;
-    padding: 0;
+    font-size: 14px; /* Adjust size for emoji */
+    padding: 2px;
     margin: 0;
     line-height: 1;
     display: none; /* 預設隱藏 */
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    border-radius: 2px;
 }
+/* Remove ::before if innerHTML is set directly */
+/* .clear-button::before {
+    content: "❌";
+    vertical-align: middle;
+} */
 
 .clear-button:hover {
     color: var(--foreground-color);
+    background-color: var(--input-option-hover-background);
 }
 
 .options-container {
@@ -136,109 +178,262 @@ body, html {
 
 .show-selected-container input {
     margin-right: 6px;
+    cursor: pointer;
+}
+.show-selected-container label {
+    cursor: pointer;
 }
 
-.configure-button {
-    background-color: var(--button-background);
-    border: none;
-    color: var(--button-foreground);
+
+/* --- 內容區域 --- */
+.content-area {
+    flex: 1; /* 佔用剩餘空間 */
+    display: flex;
+    flex-direction: column;
+    overflow: hidden; /* 防止內部滾動條影響外部 */
+    min-height: 0; /* *** 允許內容區收縮 *** */
+}
+
+/* --- 可摺疊區塊 --- */
+.collapsible-section {
+    border-bottom: 1px solid var(--separator-color);
+    display: flex;
+    flex-direction: column;
+    min-height: 0; /* 允許區塊收縮 */
+    /* flex: 0 0 auto; */ /* 預設不伸展，高度由內容決定 */
+}
+.collapsible-section:last-child {
+    border-bottom: none;
+}
+
+.collapsible-section summary {
+    padding: 6px 10px;
     cursor: pointer;
+    list-style: none; /* 移除預設的三角 */
     display: flex;
     align-items: center;
-    justify-content: center;
-    padding: 4px;
-    border-radius: 3px;
-    transition: background-color 0.2s ease;
+    font-weight: bold;
+    background-color: var(--sidebar-sectionheader-background);
+    border-top: 1px solid var(--separator-color); /* Section header border */
+    border-bottom: 1px solid var(--separator-color);
+    margin-top: -1px; /* Overlap borders */
+    outline: none; /* Remove default focus outline on summary */
+    flex-shrink: 0; /* 固定 summary 高度 */
+}
+.collapsible-section summary:hover {
+    background-color: var(--hover-color);
+}
+.collapsible-section summary:focus-visible { /* Better focus indicator */
+    outline: 1px solid var(--focus-border);
+    outline-offset: -1px;
 }
 
-.configure-button:hover {
-    background-color: var(--button-hoverBackground);
+
+.collapsible-section summary::-webkit-details-marker {
+    display: none; /* 隱藏 Chrome/Safari 的預設三角 */
 }
 
-.configure-button svg {
-    width: 14px;
-    height: 14px;
+/* --- Section Sizing --- */
+/* Files section: height determined by content, but container has max-height */
+#files-section {
+    flex-shrink: 0; /* Don't shrink initially */
+}
+/* Snippets section: takes remaining space */
+#snippets-section {
+    flex: 1; /* Grow to fill remaining space */
+    min-height: 0; /* Allow shrinking */
 }
 
-/* 檔案列表 */
+/* When a section is closed, it should collapse */
+.collapsible-section:not([open]) {
+    flex: 0 0 auto; /* Collapse to summary height */
+}
+/* Ensure closed snippet section doesn't take flex space */
+#snippets-section:not([open]) {
+    flex: 0 0 auto;
+}
+
+
+/* --- 檔案列表容器 --- */
 .file-list-container {
-    flex: 1;
-    overflow: auto;
+    overflow-y: auto; /* *** 添加獨立滾動 *** */
     padding: 0;
+    /* flex: 1; */ /* Let height be determined by content up to max-height */
+    max-height: 60vh; /* *** 限制最大高度 (可調整) *** */
+    min-height: 50px; /* *** 保證至少有一點高度 *** */
 }
 
 .file-list {
     width: 100%;
 }
 
-.file-item {
-    padding: 4px 10px;
+/* --- 片段列表容器 --- */
+.snippet-list-container {
+    overflow-y: auto; /* *** 添加獨立滾動 *** */
+    padding: 0;
+    flex: 1; /* *** 讓容器填滿 collapsible-section 的剩餘空間 *** */
+    min-height: 0; /* *** 允許容器收縮 *** */
+}
+
+.snippet-list {
+    width: 100%;
+}
+
+
+/* --- 通用列表項目樣式 --- */
+.file-item, .snippet-item {
+    padding: 3px 10px; /* 減少垂直 padding */
     cursor: pointer;
     display: flex;
     align-items: center;
     min-height: 22px;
     position: relative;
-    /* *** 新增：預設邊框透明，用於選取指示 *** */
     border: 1px solid transparent;
-    outline: 1px solid transparent; /* 用 outline 避免影響佈局 */
-    outline-offset: -1px; /* 使 outline 緊貼邊框 */
+    outline: 1px solid transparent;
+    outline-offset: -1px;
+    overflow: hidden; /* 防止內容溢出 */
 }
 
-/* *** 修改：滑鼠懸停樣式 *** */
-.file-item:not(.selected):hover {
+.file-item:not(.selected):hover,
+.snippet-item:not(.selected):hover {
     background-color: var(--hover-color);
 }
 
-/* *** 新增：視覺選取狀態樣式 *** */
-.file-item.selected {
+.file-item.selected,
+.snippet-item.selected {
     background-color: var(--selected-background);
     color: var(--selected-foreground);
-    outline-color: var(--vscode-list-focusOutline, var(--vscode-focusBorder)); /* 使用 focus outline 或 focus border */
+    outline-color: var(--list-focus-outline);
 }
 
-/* *** 新增：當選取時，子元素的顏色也跟著變 *** */
+/* 選取時子元素顏色變化 */
 .file-item.selected .file-name,
-.file-item.selected .file-tokens,
+.file-item.selected .item-tokens,
 .file-item.selected .search-result-path,
-.file-item.selected .expand-icon,
-.file-item.selected .folder-icon::before,
-.file-item.selected .file-icon::before,
-.file-item.selected .root-icon::before {
+.file-item.selected .expand-icon::before, /* Target ::before */
+.file-item.selected .folder-icon::before, /* Target ::before */
+.file-item.selected .file-icon::before,   /* Target ::before */
+.file-item.selected .root-icon::before,   /* Target ::before */
+.snippet-item.selected .snippet-name,
+.snippet-item.selected .item-tokens,
+.snippet-item.selected .snippet-icon::before, /* Target ::before */
+.snippet-item.selected .delete-snippet-button { /* Target button directly */
     color: var(--selected-foreground);
 }
+/* Override delete button hover color when selected */
+.snippet-item.selected .delete-snippet-button:hover {
+    color: var(--error-foreground); /* Keep error color on hover */
+}
 
-/* *** 新增：當選取且滑鼠懸停時，保持選取樣式 *** */
-.file-item.selected:hover {
-    background-color: var(--selected-background); /* 保持選取背景 */
+/* 選取時 hover 保持選取樣式 */
+.file-item.selected:hover,
+.snippet-item.selected:hover {
+    background-color: var(--selected-background);
 }
 
 
-.file-checkbox {
-    margin-right: 4px;
-    flex-shrink: 0; /* 防止 checkbox 被壓縮 */
+/* --- Checkbox --- */
+.item-checkbox {
+    margin-right: 6px;
+    flex-shrink: 0;
+    cursor: pointer;
+    vertical-align: middle; /* 對齊 */
+    /* Use VS Code's checkbox variables for consistency */
+    appearance: none;
+    -webkit-appearance: none;
+    width: 16px;
+    height: 16px;
+    border: 1px solid var(--checkbox-border);
+    background-color: var(--checkbox-background);
+    border-radius: 3px;
+    position: relative;
+    display: inline-block; /* Ensure proper alignment */
 }
 
+.item-checkbox:checked {
+    background-color: var(--checkbox-background); /* Background might not change */
+    border-color: var(--checkbox-border);
+}
+
+.item-checkbox:checked::after {
+    content: "";
+    display: block;
+    width: 4px;
+    height: 8px;
+    border: solid var(--checkbox-foreground);
+    border-width: 0 2px 2px 0;
+    transform: translate(5px, 2px) rotate(45deg); /* Adjust positioning */
+}
+
+.item-checkbox:indeterminate {
+    background-color: var(--checkbox-background);
+    border-color: var(--checkbox-border);
+}
+
+.item-checkbox:indeterminate::after {
+    content: "";
+    position: absolute;
+    left: 3px; /* Adjust positioning */
+    top: 6px;  /* Adjust positioning */
+    width: 8px;
+    height: 2px;
+    background-color: var(--checkbox-foreground);
+}
+.item-checkbox:focus {
+     outline: 1px solid var(--focus-border);
+     outline-offset: 1px;
+}
+
+
+/* --- 展開/摺疊圖示 (通用) --- */
 .expand-icon {
     width: 16px;
     height: 16px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    margin-right: 4px;
+    margin-right: 4px; /* Default margin for file tree */
     cursor: pointer;
+    flex-shrink: 0;
+    color: inherit; /* Inherit color from parent */
+    font-size: 10px; /* Slightly larger arrow size */
+    /* transition: transform 0.15s ease-in-out; */ /* Remove transform if using content change */
+}
+/* Section Header 中的 expand-icon 特定 margin */
+.collapsible-section summary .expand-icon {
+    margin-right: 6px;
+}
+
+/* --- 箭頭內容 --- */
+/* 預設為收合箭頭 (用於檔案樹中的資料夾) */
+.expand-icon::before {
+    content: "►";
+}
+/* 如果父 file-item 是展開的 (JS 會添加 is-expanded class) */
+.file-item.is-expanded > .expand-icon::before { /* Use direct child selector > */
+    content: "▼";
+}
+
+/* Section Header 的箭頭 (基於 <details> 的 open 屬性) */
+.collapsible-section:not([open]) > summary .expand-icon::before {
+    content: "►";
+}
+.collapsible-section[open] > summary .expand-icon::before {
+    content: "▼";
+}
+
+
+/* --- 縮排佔位符 --- */
+.indent-placeholder {
+    width: 16px; /* Match expand icon width */
+    height: 16px;
+    display: inline-block;
+    margin-right: 4px; /* Match expand icon margin */
     flex-shrink: 0;
 }
 
-.expanded-icon::before {
-    content: "▼";
-    font-size: 8px;
-}
 
-.collapsed-icon::before {
-    content: "►";
-    font-size: 8px;
-}
-
+/* --- 檔案/資料夾圖示 (using ::before) --- */
 .folder-icon, .file-icon, .root-icon {
     width: 16px;
     height: 16px;
@@ -247,6 +442,7 @@ body, html {
     justify-content: center;
     margin-right: 6px;
     flex-shrink: 0;
+    /* color: var(--icon-foreground); */ /* Color applied via ::before */
 }
 
 .root-icon::before {
@@ -264,86 +460,172 @@ body, html {
     font-size: 14px;
 }
 
+
+/* --- 檔案名稱 --- */
 .file-name {
     flex: 1;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    margin-right: 8px; /* 與 token 分隔 */
 }
 
-.file-tokens {
-    margin-left: 8px;
-    color: var(--vscode-descriptionForeground);
+/* --- Token 顯示 --- */
+.item-tokens {
+    margin-left: auto; /* 推到最右邊 */
+    padding-left: 8px; /* 與名稱分隔 */
+    color: var(--description-foreground);
     font-size: 12px;
     white-space: nowrap;
     flex-shrink: 0;
 }
 
-/* 搜尋結果樣式 */
+/* --- 搜尋結果特定樣式 --- */
 .search-result {
-    margin-bottom: 2px;
-    /* 移除左邊框，改用 outline */
-    /* border-left: 3px solid transparent; */
+    /* 可以添加特定樣式，例如移除縮排 */
 }
-
-/* 移除 hover 時的左邊框 */
-/* .search-result:hover {
-    border-left-color: var(--vscode-focusBorder);
-} */
-
 .search-result-container {
     display: flex;
     flex-direction: column;
     flex: 1;
-    min-width: 0; /* 確保flex項目可以正確收縮 */
+    min-width: 0;
+    margin-right: 8px;
 }
-
 .search-result-path {
     font-size: 11px;
-    color: var(--vscode-descriptionForeground);
+    color: var(--description-foreground);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
 }
 
-.empty-search {
-    padding: 16px;
-    text-align: center;
-    color: var(--vscode-descriptionForeground);
-    font-style: italic;
+/* --- 片段項目特定樣式 --- */
+.snippet-item {
+    /* 可以添加特定樣式 */
 }
+.snippet-icon {
+    width: 16px;
+    height: 16px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 6px;
+    flex-shrink: 0;
+    /* color: var(--icon-foreground); */ /* Color applied via ::before */
+}
+.snippet-icon::before {
+    content: "📝"; /* Snippet emoji */
+    font-size: 14px;
+}
+
+.snippet-info-container {
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-right: 8px;
+}
+.snippet-name {
+    display: block; /* 讓 ellipsis 生效 */
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.delete-snippet-button {
+    background: none;
+    border: none;
+    color: var(--description-foreground);
+    cursor: pointer;
+    padding: 0 4px;
+    margin-left: 4px;
+    display: none; /* 預設隱藏 */
+    flex-shrink: 0;
+    font-size: 14px; /* Adjust for emoji */
+    line-height: 1;
+    /* Emoji set via innerHTML in JS */
+}
+
+.snippet-item:hover .delete-snippet-button {
+    display: inline-flex; /* Hover 時顯示 */
+    align-items: center;
+}
+.delete-snippet-button:hover {
+    color: var(--error-foreground);
+}
+/* Color when selected handled by general .selected rule */
+
+
+/* --- 空狀態提示 --- */
+.empty-state {
+    padding: 20px;
+    text-align: center;
+    color: var(--description-foreground);
+    font-size: 13px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 80px; /* 給一點最小高度 */
+}
+.empty-state-icon {
+    font-size: 24px; /* Adjust for emoji */
+    margin-bottom: 8px;
+    /* color: var(--icon-foreground); */ /* Emoji has its own color */
+}
+.empty-state-icon::before {
+    content: "ℹ️"; /* Info emoji */
+    font-size: 24px;
+}
+
+.empty-state-message {
+    line-height: 1.5;
+}
+
 
 /* 底部摘要列 */
 .footer {
-    padding: 8px 10px;
+    padding: 6px 10px; /* 減少 padding */
     display: flex;
     justify-content: space-between;
     align-items: center;
     border-top: 1px solid var(--separator-color);
     background-color: var(--background-color);
-    flex-shrink: 0;
+    flex-shrink: 0; /* 固定高度 */
 }
 
 .summary {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 2px; /* 減少間距 */
+    flex: 1; /* 佔用更多空間 */
+    margin-right: 10px; /* 與按鈕間隔 */
+    min-width: 0; /* Allow shrinking */
 }
 
 .summary-text {
     display: flex;
-    flex-direction: column;
+    flex-direction: column; /* 垂直排列 */
     font-size: 12px;
+    gap: 2px;
+    color: var(--description-foreground);
 }
+#selected-count {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+#tokens-count {
+     white-space: nowrap;
+}
+
 
 .progress-container {
     margin-top: 4px;
     height: 4px;
-    width: 120px;
+    width: 100%; /* 佔滿寬度 */
+    max-width: 150px; /* 最大寬度 */
     background-color: var(--input-background);
-    border: none;
     border-radius: 2px;
-    overflow: visible;
+    overflow: hidden; /* 隱藏溢出的 bar */
     position: relative;
     display: none; /* 預設隱藏 */
 }
@@ -354,158 +636,96 @@ body, html {
     background-color: var(--progress-bar-background);
     transition: width 0.3s ease;
 }
+.progress-bar.over-limit {
+    background-color: var(--editor-warning-foreground); /* 超出限制時變色 */
+}
+
 
 .progress-percentage {
     position: absolute;
-    right: -25px;
-    top: -7px;
+    right: -30px; /* 調整位置 */
+    top: -6px; /* 調整位置 */
     font-size: 10px;
-    color: var(--vscode-descriptionForeground);
+    color: var(--description-foreground);
 }
 
 .copy-button {
     padding: 4px 10px;
     background-color: var(--button-background);
     color: var(--button-foreground);
-    border: none;
+    border: 1px solid var(--button-border, transparent);
     border-radius: 2px;
     cursor: pointer;
     font-size: 13px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px; /* 圖示和文字間距 (adjust if needed) */
+    flex-shrink: 0; /* 防止按鈕被壓縮 */
 }
+/* Icon set via innerHTML in JS */
+
 
 .copy-button:hover:not(:disabled) {
     background-color: var(--button-hoverBackground);
 }
 
 .copy-button:disabled {
-    opacity: 0.5;
+    opacity: 0.6;
     cursor: not-allowed;
 }
 
-/* 複選框樣式 */
-.file-checkbox {
-    appearance: none;
-    -webkit-appearance: none;
-    width: 16px;
-    height: 16px;
-    border: 1px solid var(--input-border);
-    background-color: var(--input-background);
-    border-radius: 3px;
-    position: relative;
-    cursor: pointer;
-    margin: 0 6px 0 0;
-    flex-shrink: 0; /* 確保 checkbox 不會被壓縮 */
-}
-
-.file-checkbox:checked {
-    background-color: var(--button-background);
-    border-color: var(--button-background);
-}
-
-.file-checkbox:checked::after {
-    content: "";
-    position: absolute;
-    left: 4px;
-    top: 1px;
-    width: 5px;
-    height: 10px;
-    border: solid white;
-    border-width: 0 2px 2px 0;
-    transform: rotate(45deg);
-}
-
-.file-checkbox:indeterminate {
-    background-color: var(--button-background);
-    border-color: var(--button-background);
-}
-
-.file-checkbox:indeterminate::after {
-    content: "";
-    position: absolute;
-    left: 3px;
-    top: 6px;
-    width: 8px;
-    height: 2px;
-    background-color: white;
-}
 
 /* 訊息提示 */
 .message {
     position: fixed;
-    top: 10px;
+    bottom: 10px; /* 改到底部 */
     left: 50%;
     transform: translateX(-50%);
     padding: 8px 16px;
-    background-color: var(--vscode-notificationToast-background, #333);
-    color: var(--vscode-notificationToast-foreground, #fff);
-    border: 1px solid var(--vscode-notificationToast-border, #444);
+    background-color: var(--notification-toast-background);
+    color: var(--notification-toast-foreground);
+    border: 1px solid var(--notification-toast-border);
     border-radius: 4px;
     z-index: 1000;
     max-width: 80%;
     text-align: center;
-    animation: fadeIn 0.3s ease;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    opacity: 1;
+    transition: opacity 0.5s ease-out, transform 0.5s ease-out;
+}
+.message.info {
+    background-color: var(--statusbar-background);
+    color: var(--statusbar-foreground);
+    border-color: var(--statusbar-border);
 }
 
 .message.error {
-    background-color: var(--error-foreground);
-    color: white;
+    background-color: var(--statusbar-error-background);
+    color: var(--statusbar-error-foreground);
+    border-color: var(--statusbar-error-background);
+}
+/* Icon set via innerHTML in JS */
+.message-icon {
+    font-size: 16px; /* Adjust for emoji */
+    vertical-align: middle;
 }
 
-@keyframes fadeIn {
-    from { opacity: 0; transform: translate(-50%, -20px); }
-    to { opacity: 1; transform: translate(-50%, 0); }
+.message.fade-out {
+    opacity: 0;
+    transform: translate(-50%, 20px); /* 向下消失 */
+    animation: fadeOut 0.5s ease-out forwards; /* Add animation */
 }
 
-/* 適配深色/淺色主題 */
-@media (prefers-color-scheme: dark) {
-    .folder-icon::before {
-        content: "📁";
-    }
-    .file-icon::before {
-        content: "📄";
-    }
-    .root-icon::before {
-        content: "🏠";
-    }
+@keyframes fadeOut {
+    from { opacity: 1; transform: translate(-50%, 0); }
+    to { opacity: 0; transform: translate(-50%, 20px); }
 }
 
-@media (prefers-color-scheme: light) {
-    .folder-icon::before {
-        content: "📁";
-    }
-    .file-icon::before {
-        content: "📄";
-    }
-    .root-icon::before {
-        content: "🏠";
-    }
-}
 
-/* 無檔案提示 */
-.empty-state {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    height: 100%;
-    color: var(--vscode-descriptionForeground);
-    text-align: center;
-    padding: 20px;
-}
-
-.empty-state-icon {
-    font-size: 36px;
-    margin-bottom: 12px;
-}
-
-.empty-state-message {
-    font-size: 14px;
-    max-width: 300px;
-    line-height: 1.5;
-}
-
-/* 除錯資訊區域 */
+/* 除錯資訊區域 (保持不變) */
 .debug-info {
     padding: 8px;
     margin-top: 8px;
@@ -519,8 +739,10 @@ body, html {
     word-break: break-all;
     display: none; /* 預設隱藏 */
 }
-
-/* 當除錯模式啟用時顯示 */
 .debug-mode .debug-info {
     display: block;
 }
+
+/* 適配深色/淺色主題 (Emoji 通常自帶顏色，可能不需要特別調整) */
+/* @media (prefers-color-scheme: dark) { ... } */
+/* @media (prefers-color-scheme: light) { ... } */

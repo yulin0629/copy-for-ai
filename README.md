@@ -25,14 +25,20 @@
 
 全新功能讓你可以輕鬆選取並複製多個檔案：
 
-1. **多檔案選取** - 使用檔案瀏覽器介面勾選多個檔案
-2. **資料夾批次選取** - 勾選資料夾自動選取所有子檔案
-3. **檔案搜尋篩選** - 快速篩選顯示需要的檔案
-4. **Tokens 預估** - 顯示選取檔案的預估 tokens 數量和百分比
-5. **狀態持久化** - 記住您的選取和展開狀態
-6. **右鍵選單整合** - 支援從檔案總管和編輯器頁籤直接添加檔案/資料夾
-7. **範圍選取** - 支援按住 Shift 鍵點擊勾選框，快速選取範圍內的多個檔案。
-8. **選取檔案** - 支援在檔案列表中點擊整列來切換選取狀態，操作更為直覺。
+1.  **多檔案/片段選取** - 使用檔案瀏覽器介面勾選多個檔案或程式碼片段。
+2.  **資料夾批次選取** - 勾選資料夾自動選取所有子檔案。
+3.  **檔案/片段搜尋篩選** - 快速篩選顯示需要的檔案或片段。
+4.  **Tokens 預估** - 顯示選取項目（檔案+片段）的預估 tokens 總數量和百分比。
+5.  **狀態持久化** - 記住您的選取、展開狀態**和已儲存的片段**。
+6.  **右鍵選單整合** - 支援從檔案總管和編輯器頁籤直接添加檔案/資料夾。
+7.  **範圍選取** - 支援按住 Shift 鍵點擊勾選框，快速選取範圍內的多個檔案或片段。
+8.  **選取項目** - 支援在檔案或片段列表中點擊整列來切換選取狀態，操作更為直覺。
+9.  **程式碼片段支援 (Snippets)**:
+    *   從編輯器選取程式碼，右鍵選擇「Add Snippet to Copy For AI Explorer」即可儲存片段。
+    *   在瀏覽器中獨立的「程式碼片段」區塊管理片段。
+    *   支援勾選、複製、預覽（點擊跳轉至原始碼）和移除片段。
+    *   片段會儲存上下文資訊（可選，根據設定）。
+10. **可摺疊區塊**: 檔案列表和程式碼片段列表現在位於可獨立摺疊的區塊中。
 
 ## 使用方法
 
@@ -72,28 +78,35 @@
 
 ### 3. 使用檔案瀏覽器 (Context Explorer)
 
-**開啟檔案瀏覽器：**
-- 點擊左側活動欄中的「Copy For AI」圖示，開啟檔案瀏覽器側邊欄
+**開啟瀏覽器：**
+- 點擊左側活動欄中的「Copy For AI」圖示，開啟瀏覽器側邊欄
 
-**選取檔案：**
-- 勾選想要複製的檔案或資料夾
-- 勾選資料夾將自動選取所有子檔案
-- **範圍選取**：點擊第一個檔案的勾選框，然後按住 Shift 鍵點擊另一個檔案的勾選框，即可選取兩者之間的所有可見檔案。
+**選取檔案與片段：**
+- 勾選想要複製的檔案、資料夾或程式碼片段。
+- 勾選資料夾將自動選取所有子檔案。
+- **範圍選取**：點擊第一個項目（檔案或片段）的勾選框，然後按住 Shift 鍵點擊另一個項目的勾選框，即可選取兩者之間的所有可見項目。
 
-**使用右鍵選單添加檔案：**
-- 在 VSCode 檔案總管中，右鍵點擊檔案，選擇「Add to Copy For AI Explorer」
+**使用右鍵選單添加項目：**
+- 在 VSCode 檔案總管中，右鍵點擊檔案，選擇「Add File to Copy For AI Explorer」
 - 在 VSCode 檔案總管中，右鍵點擊資料夾，選擇「Add Folder to Copy For AI Explorer」
-- 在編輯器頁籤上，右鍵點擊頁籤，選擇「Add to Copy For AI Explorer」
+- 在編輯器頁籤上，右鍵點擊頁籤，選擇「Add Tab to Copy For AI Explorer」
+- **新增：** 在編輯器中選取程式碼，右鍵點擊選取的文字，選擇「Add Snippet to Copy For AI Explorer」
 
-**篩選檔案：**
-- 在頂部搜尋框中輸入關鍵字快速篩選檔案（支援不區分大小寫和多關鍵字搜尋，例如 "media main"）。
-- 勾選「僅顯示已選取」來專注於已選取的檔案
+**篩選項目：**
+- 在頂部搜尋框中輸入關鍵字快速篩選檔案或片段（支援不區分大小寫和多關鍵字搜尋）。
+- 勾選「僅顯示已選取」來專注於已選取的項目
 
-**複製檔案：**
+**複製項目：**
 - 點擊底部的「複製到剪貼簿」按鈕
-- 所有選取的檔案內容將按照設定的格式複製到剪貼簿
+- 所有選取的檔案和片段內容將按照設定的格式複製到剪貼簿
+
+**管理片段：**
+- 在「程式碼片段」區塊中，可以勾選/取消勾選片段。
+- 點擊片段列（非勾選框）可以跳轉到原始碼位置並選取對應範圍。
+- 點擊片段列右側的垃圾桶圖示可以移除該片段。
 
 接著將複製的內容貼到 ChatGPT、Claude 或其他 AI 工具中，即可保持程式碼的格式和上下文。
+
 
 ## 輸出格式範例
 
@@ -149,6 +162,22 @@ export function activate(context: vscode.ExtensionContext) {
 }
 ```
 
+## Snippet: src/formatter.ts (5-15)
+### Structure
+- Function: formatOutput(options: FormatOptions)
+### Imports
+```typescript
+// ... relevant imports for the snippet ...
+```
+### Code
+```typescript
+export function formatOutput(options: FormatOptions): string {
+    switch (options.format) {
+        // ... snippet code ...
+    }
+}
+```
+
 ## File: src/formatter.ts
 ```typescript
 export function formatOutput(options: FormatOptions): string {
@@ -192,6 +221,8 @@ export function formatOutput(options: FormatOptions): string {
 
 8. **copyForAI.contextExplorer.excludePatterns** (預設: ["**/node_modules/**", "**/.git/**", "**/dist/**", "**/build/**", "**/bin/**"])
    - Context Explorer 中排除的檔案模式
+9. **copyForAI.contextExplorer.followGitignore** (預設: true)
+   - Context Explorer 是否遵循工作區根目錄下的 .gitignore 檔案規則。
 
 ## 安裝
 
@@ -265,7 +296,7 @@ npm install -g @vscode/vsce
 # 打包擴展為 .vsix 檔案
 vsce package
 ```
-這將在專案根目錄生成一個 `copy-for-ai-0.1.2.vsix` 檔案（版本號可能不同）。
+這將在專案根目錄生成一個 `copy-for-ai-0.1.8.vsix` 檔案（版本號可能不同）。
 
 ## 授權
 

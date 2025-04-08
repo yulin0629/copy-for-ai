@@ -1,5 +1,4 @@
-// media/contextExplorer/main.js
-import { initializeState, updateFiles, setTokenLimit, updateStateFromExtension } from './state.js';
+import { initializeState, updateFiles, setTokenLimit, updateStateFromExtension, updateSnippets } from './state.js'; // 引入 updateSnippets
 import { initializeUI, renderFileList, showMessage, updateCopyButtonStatus } from './ui.js';
 import { setupEventListeners } from './events.js';
 import { setMessageListener, sendMessageToExtension } from './vscodeApi.js';
@@ -8,16 +7,11 @@ import { setMessageListener, sendMessageToExtension } from './vscodeApi.js';
  * 初始化 WebView
  */
 function initialize() {
-    // 1. 設置與 VS Code 的訊息監聽器
+    console.log("[WebView Main] Initializing..."); // <-- 驗證 initialize 是否執行
     setMessageListener(handleExtensionMessage);
-
-    // 2. 設置 UI 事件監聽器
-    setupEventListeners();
-
-    // 3. 向擴充功能請求初始資料
+    setupEventListeners(); // <-- 確保這裡被調用
     sendMessageToExtension({ command: 'getFiles' });
-
-    console.log("Context Explorer WebView Initializing...");
+    console.log("[WebView Main] Initialization complete.");
 }
 
 /**
@@ -29,12 +23,10 @@ function handleExtensionMessage(message) {
 
     switch (message.command) {
         case 'initialize':
-            // 使用從擴充功能獲取的資料初始化狀態
+            // 使用從擴充功能獲取的資料初始化狀態 (包含檔案和片段)
             initializeState(message);
             // 初始化 UI (例如設置篩選框的值)
-            initializeUI();
-            // 根據初始狀態渲染檔案列表
-            renderFileList();
+            initializeUI(); // initializeUI 內部會調用 renderFileList
             break;
 
         case 'updateFiles':
@@ -50,6 +42,7 @@ function handleExtensionMessage(message) {
 
         case 'copyStatus':
             // 更新複製按鈕狀態和顯示訊息
+            console.log('[WebView Main] Handling copyStatus message:', message);
             updateCopyButtonStatus(message);
             break;
 
@@ -60,12 +53,14 @@ function handleExtensionMessage(message) {
             renderFileList();
             break;
 
-        case 'updateState': // 處理來自擴充功能的狀態強制更新 (例如右鍵添加檔案)
-            // 更新 selectionState 和 expandedFolders
+        case 'updateState': // 處理來自擴充功能的狀態強制更新 (例如右鍵添加檔案/片段, 或刪除片段後)
+            console.log('[WebView Main] Handling updateState message:', message.state); // <-- 添加日誌
+            // 更新 selectionState, expandedFolders 和 snippets
             updateStateFromExtension(message.state);
-            // 重新渲染列表以反映狀態變化
-            renderFileList();
-            break;
+            // **** 關鍵：確保調用 renderFileList ****
+            console.log('[WebView Main] Calling renderFileList after updateStateFromExtension'); // <-- 添加日誌
+            renderFileList(); // <-- 確保這一行存在且被執行
+        break;
 
         // 可以添加其他命令處理...
         default:

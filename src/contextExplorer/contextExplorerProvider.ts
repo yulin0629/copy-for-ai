@@ -4,6 +4,7 @@ import { FileTreeService } from './fileTreeService';
 import { StateManager } from './stateManager';
 import { ContextExplorerWebviewHandler } from './contextExplorerWebviewHandler';
 import { ContextExplorerService } from './contextExplorerService';
+import { Snippet } from './types'; // 引入 Snippet
 
 /**
  * Context Explorer 視圖提供者
@@ -18,7 +19,7 @@ export class ContextExplorerProvider implements vscode.WebviewViewProvider {
     private _fileTreeService: FileTreeService;
     private _stateManager: StateManager;
     private _webviewHandler: ContextExplorerWebviewHandler;
-    private _service: ContextExplorerService;
+    public _service: ContextExplorerService; // 改為 public 以便 extension.ts 訪問
 
     constructor(context: vscode.ExtensionContext) {
         this._context = context;
@@ -83,7 +84,7 @@ export class ContextExplorerProvider implements vscode.WebviewViewProvider {
             const initialData = await this._service.getInitialData();
             await this._webviewHandler.initialize(
                 initialData.files,
-                initialData.savedState,
+                initialData.savedState, // savedState 現在包含 snippets
                 initialData.tokenLimit,
                 initialData.sessionId
             );
@@ -114,5 +115,12 @@ export class ContextExplorerProvider implements vscode.WebviewViewProvider {
      */
     public addFolderToExplorer(folderPath: string): Promise<void> {
         return this._service.addFolderToExplorer(folderPath);
+    }
+
+    /**
+     * 公開方法：添加程式碼片段到瀏覽器 (供外部命令調用)
+     */
+    public addSnippetToExplorer(snippet: Snippet): Promise<void> {
+        return this._service.addSnippetToExplorer(snippet);
     }
 }

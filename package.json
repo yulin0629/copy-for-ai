@@ -1,8 +1,8 @@
 {
   "name": "copy-for-ai",
   "displayName": "Copy For AI",
-  "description": "複製程式碼為 AI 友善的 Markdown, XML, JSON 格式",
-  "version": "0.1.7",
+  "description": "複製程式碼為 AI 友善的 Markdown, XML, JSON 格式，並提供檔案/片段瀏覽器",
+  "version": "0.1.8",
   "repository": {
     "type": "git",
     "url": "https://github.com/yulin0629/Copy-For-AI.git"
@@ -11,9 +11,12 @@
     "vscode": "^1.74.0"
   },
   "categories": [
-    "Other"
+    "Other",
+    "Snippets"
   ],
-  "activationEvents": [],
+  "activationEvents": [
+    "onView:copy-for-ai.contextExplorer"
+  ],
   "main": "./dist/extension.js",
   "contributes": {
     "viewsContainers": {
@@ -29,7 +32,7 @@
       "copy-for-ai-explorer": [
         {
           "id": "copy-for-ai.contextExplorer",
-          "name": "檔案瀏覽器",
+          "name": "檔案與片段瀏覽器",
           "type": "webview"
         }
       ]
@@ -48,11 +51,12 @@
       {
         "command": "copy-for-ai.openSettings",
         "title": "設定",
-        "icon": "$(gear)"
+        "icon": "$(gear)",
+        "category": "Copy For AI"
       },
       {
         "command": "copy-for-ai.addFileToExplorer",
-        "title": "Add to Copy For AI Explorer",
+        "title": "Add File to Copy For AI Explorer",
         "category": "Copy For AI"
       },
       {
@@ -62,7 +66,12 @@
       },
       {
         "command": "copy-for-ai.addEditorTabToExplorer",
-        "title": "Add to Copy For AI Explorer",
+        "title": "Add Tab to Copy For AI Explorer",
+        "category": "Copy For AI"
+      },
+      {
+        "command": "copy-for-ai.addSnippetToExplorer",
+        "title": "Add Snippet to Copy For AI Explorer",
         "category": "Copy For AI"
       }
     ],
@@ -78,30 +87,35 @@
         {
           "command": "copy-for-ai.addFileToExplorer",
           "when": "!explorerResourceIsFolder",
-          "group": "copy"
+          "group": "copyForAI@1"
         },
         {
           "command": "copy-for-ai.addFolderToExplorer",
           "when": "explorerResourceIsFolder",
-          "group": "copy"
+          "group": "copyForAI@2"
         }
       ],
       "editor/title/context": [
         {
           "command": "copy-for-ai.addEditorTabToExplorer",
-          "group": "copy"
+          "group": "copyForAI@1"
         }
       ],
       "editor/context": [
         {
           "when": "editorHasSelection",
           "command": "copy-for-ai.copyForAI",
-          "group": "clipboard"
+          "group": "copyForAI@1"
         },
         {
           "when": "editorHasSelection",
           "command": "copy-for-ai.copyForAIWithContext",
-          "group": "clipboard"
+          "group": "copyForAI@2"
+        },
+        {
+          "when": "editorHasSelection",
+          "command": "copy-for-ai.addSnippetToExplorer",
+          "group": "copyForAI@3"
         }
       ],
       "commandPalette": [
@@ -111,6 +125,10 @@
         },
         {
           "command": "copy-for-ai.copyForAIWithContext",
+          "when": "editorHasSelection"
+        },
+        {
+          "command": "copy-for-ai.addSnippetToExplorer",
           "when": "editorHasSelection"
         }
       ]
@@ -135,12 +153,12 @@
         "copyForAI.includeStructureInfo": {
           "type": "boolean",
           "default": true,
-          "description": "是否包含程式碼結構資訊"
+          "description": "是否包含程式碼結構資訊 (用於 'Copy For AI (With Context)' 和添加片段)"
         },
         "copyForAI.includeRelatedImports": {
           "type": "boolean",
           "default": true,
-          "description": "是否包含相關的引用/匯入語句"
+          "description": "是否包含相關的引用/匯入語句 (用於 'Copy For AI (With Context)' 和添加片段)"
         },
         "copyForAI.outputFormat": {
           "type": "string",
@@ -151,7 +169,7 @@
             "custom"
           ],
           "default": "markdown",
-          "description": "上下文資訊的輸出格式"
+          "description": "複製時的輸出格式 (適用於上下文複製和 Explorer 複製)"
         },
         "copyForAI.customFormatBefore": {
           "type": "string",
@@ -166,12 +184,12 @@
         "copyForAI.includeComments": {
           "type": "boolean",
           "default": true,
-          "description": "是否包含程式碼中的註解"
+          "description": "是否包含程式碼中的註解 (用於上下文複製和添加片段)"
         },
         "copyForAI.tokenLimit": {
           "type": "number",
           "default": 0,
-          "description": "預設 token 上限（0 表示無上限）。設定後會顯示檔案 token 百分比及進度條。"
+          "description": "預設 token 上限（0 表示無上限）。設定後會在 Explorer 中顯示 token 百分比及進度條。"
         },
         "copyForAI.contextExplorer.excludePatterns": {
           "type": "array",
@@ -183,9 +201,11 @@
             "**/.git/**",
             "**/dist/**",
             "**/build/**",
-            "**/bin/**"
+            "**/bin/**",
+            "**/obj/**",
+            "**/*.log"
           ],
-          "description": "檔案瀏覽器中要排除的檔案模式。支援 glob 模式，例如 '**/node_modules/**' 表示排除所有 node_modules 資料夾及其內容。",
+          "description": "檔案瀏覽器中要排除的檔案模式。支援 glob 模式。",
           "scope": "resource"
         },
         "copyForAI.contextExplorer.followGitignore": {
@@ -195,7 +215,15 @@
           "scope": "resource"
         }
       }
-    }
+    },
+    "iconThemes": [
+      {
+        "id": "copy-for-ai-icons",
+        "label": "Copy For AI Icons",
+        "path": "./media/icon.svg"
+      }
+    ],
+    "icon": "media/icon.svg"
   },
   "scripts": {
     "vscode:prepublish": "npm run package",
@@ -208,7 +236,7 @@
     "watch-tests": "tsc -p . -w --outDir out",
     "pretest": "npm run compile-tests && npm run compile && npm run lint",
     "check-types": "tsc --noEmit",
-    "lint": "eslint src",
+    "lint": "eslint src/**/*.ts media/**/*.js",
     "test": "vscode-test"
   },
   "devDependencies": {
